@@ -203,13 +203,19 @@ button { border: none; background: none; color: inherit; cursor: pointer; }
 }
 .ribbon-game {
   flex: 0 0 auto; scroll-snap-align: start;
-  padding: 10px 14px; border-radius: var(--r-md);
+  padding: 10px 32px 10px 14px; border-radius: var(--r-md);
   background: var(--bg-elev);
   border: 1px solid var(--border-soft);
   color: var(--text-dim);
   display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
-  min-width: 128px;
-  transition: all 0.15s ease;
+  min-width: 140px;
+  position: relative; overflow: hidden;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+.ribbon-game::before {
+  content: ''; position: absolute; left: 0; right: 0; top: 0;
+  height: 2px; background: transparent;
+  transition: background 0.15s ease;
 }
 .ribbon-game .ribbon-label {
   font-size: 10px; font-weight: 700; color: var(--text-mute);
@@ -222,38 +228,48 @@ button { border: none; background: none; color: inherit; cursor: pointer; }
   font-size: 10px; color: var(--text-mute); font-variant-numeric: tabular-nums;
 }
 .ribbon-game.active {
-  background: linear-gradient(to bottom, rgba(251,191,36,0.2), rgba(217,119,6,0.15));
-  border-color: var(--accent);
+  background: linear-gradient(to bottom, rgba(30,41,59,0.95), rgba(15,23,42,0.92));
+  border-color: rgba(251,191,36,0.55);
   color: var(--text);
-  box-shadow: 0 2px 12px rgba(251,191,36,0.2);
+  box-shadow: 0 4px 14px rgba(0,0,0,0.4), inset 0 0 0 1px rgba(251,191,36,0.08);
 }
-.ribbon-game.active .ribbon-label,
-.ribbon-game.active .ribbon-opp { color: var(--accent); }
+.ribbon-game.active::before {
+  background: linear-gradient(to right, transparent 0%, var(--accent) 20%, var(--accent) 80%, transparent 100%);
+}
+.ribbon-game.active .ribbon-label { color: var(--accent); letter-spacing: 0.8px; }
+.ribbon-game.active .ribbon-opp  { color: var(--text); }
+.ribbon-game.active .ribbon-time { color: var(--text-dim); }
 .ribbon-game.excluded { opacity: 0.45; }
+.ribbon-game.excluded .ribbon-opp { text-decoration: line-through; text-decoration-color: rgba(148,163,184,0.55); }
 .ribbon-game:active { transform: scale(0.97); }
 
-/* Game toolbar (history + include toggle) */
+/* Include-in-totals dot (top-right corner of each ribbon card) */
+.ribbon-include {
+  position: absolute; top: 8px; right: 8px;
+  width: 16px; height: 16px; border-radius: 50%;
+  border: 1.5px solid rgba(148,163,184,0.5);
+  background: transparent;
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: all 0.15s ease;
+  z-index: 2;
+}
+.ribbon-include::after {
+  /* enlarge tap target without moving the visible dot */
+  content: ''; position: absolute; inset: -8px;
+}
+.ribbon-include.on {
+  background: var(--success); border-color: var(--success);
+  box-shadow: 0 0 0 2px rgba(34,197,94,0.15);
+}
+.ribbon-include.on::before {
+  content: '✓'; font-size: 10px; font-weight: 900; color: #0f172a; line-height: 1;
+}
+
+/* Game toolbar (undo/redo) */
 .game-toolbar {
-  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  display: flex; align-items: center; justify-content: flex-end; gap: 8px;
   margin-bottom: 10px;
 }
-.game-toolbar .toolbar-left {
-  display: flex; align-items: center; gap: 8px; flex: 1;
-  min-width: 0;
-}
-.game-toolbar .toolbar-meta {
-  font-size: 11px; color: var(--text-dim);
-  font-weight: 600; letter-spacing: 0.3px; text-transform: uppercase;
-}
-.include-toggle {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 5px 10px; border-radius: var(--r-pill);
-  background: var(--bg-elev); border: 1px solid var(--border-soft);
-  font-size: 11px; font-weight: 700; color: var(--text-dim);
-  text-transform: uppercase; letter-spacing: 0.3px;
-}
-.include-toggle input { accent-color: var(--success); width: 13px; height: 13px; }
-.include-toggle.active { background: rgba(34,197,94,0.12); border-color: rgba(34,197,94,0.5); color: var(--success); }
 .icon-btn {
   width: 34px; height: 34px; border-radius: var(--r-md);
   display: inline-flex; align-items: center; justify-content: center;
@@ -1029,11 +1045,21 @@ function renderRibbon() {
     const btn = document.createElement('button');
     btn.className = 'ribbon-game' + (i === activeGame ? ' active' : '') + (included[i] ? '' : ' excluded');
     btn.dataset.game = i;
+    const dotTitle = included[i] ? 'Counted in totals — tap to exclude' : 'Excluded from totals — tap to include';
     btn.innerHTML =
+      '<span class="ribbon-include' + (included[i] ? ' on' : '') + '" data-toggle role="checkbox" aria-checked="' + included[i] + '" aria-label="' + dotTitle + '" title="' + dotTitle + '"></span>' +
       '<span class="ribbon-label">Game ' + (i+1) + '</span>' +
       '<span class="ribbon-opp">' + sched.opp + '</span>' +
       '<span class="ribbon-time">' + sched.time + (sched.field && sched.field !== 'TBD' ? ' · ' + sched.field : '') + '</span>';
-    btn.addEventListener('click', () => { activeGame = i; renderGamesTab(); });
+    btn.addEventListener('click', (e) => {
+      if (e.target.closest('[data-toggle]')) {
+        e.stopPropagation();
+        included[i] = !included[i];
+        saveAll(); pushHistory(); renderActiveTab();
+        return;
+      }
+      activeGame = i; renderGamesTab();
+    });
     container.appendChild(btn);
   });
   // scroll active into view
@@ -1068,17 +1094,11 @@ function renderGameDetail() {
   const onFieldH2 = new Set(POSITIONS.map(p => g.h2[p]).filter(Boolean));
   const benchOpen = benchOpenFor === gIdx;
 
-  // Toolbar: include toggle + undo/redo
+  // Toolbar: undo/redo (include-in-totals now lives on the ribbon card)
   const canUndo = historyIndex > 0;
   const canRedo = historyIndex < history.length - 1;
   let html = '';
   html += '<div class="game-toolbar">';
-  html +=   '<div class="toolbar-left">';
-  html +=     '<label class="include-toggle' + (included[gIdx] ? ' active' : '') + '">' +
-                '<input type="checkbox" id="game-include"' + (included[gIdx] ? ' checked' : '') + '>' +
-                '<span>Include in totals</span>' +
-              '</label>';
-  html +=   '</div>';
   html +=   '<button class="icon-btn" id="btn-undo" ' + (canUndo ? '' : 'disabled') + ' title="Undo">↶</button>';
   html +=   '<button class="icon-btn" id="btn-redo" ' + (canRedo ? '' : 'disabled') + ' title="Redo">↷</button>';
   html += '</div>';
@@ -1144,9 +1164,6 @@ function renderGameDetail() {
   view.innerHTML = html;
 
   // Handlers
-  document.getElementById('game-include').addEventListener('change', (e) => {
-    included[gIdx] = e.target.checked; saveAll(); pushHistory(); renderActiveTab();
-  });
   document.getElementById('btn-undo').addEventListener('click', undo);
   document.getElementById('btn-redo').addEventListener('click', redo);
   document.getElementById('bench-toggle').addEventListener('click', () => {
