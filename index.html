@@ -70,10 +70,11 @@ body {
 }
 button, input, select { font-family: inherit; }
 button { border: none; background: none; color: inherit; cursor: pointer; }
-::-webkit-scrollbar { width: 8px; height: 8px; }
-::-webkit-scrollbar-track { background: rgba(15,23,42,0.5); }
-::-webkit-scrollbar-thumb { background: rgba(71,85,105,0.7); border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(100,116,139,0.8); }
+* { scrollbar-width: thin; scrollbar-color: rgba(51,65,85,0.5) transparent; }
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background-color: rgba(51,65,85,0.5); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background-color: rgba(71,85,105,0.8); }
 
 /* ══════════════════ App shell ══════════════════ */
 .app-bar {
