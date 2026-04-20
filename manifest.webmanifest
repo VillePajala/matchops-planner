@@ -1,7 +1,7 @@
 {
   "name": "MatchOps Planner",
   "short_name": "Planner",
-  "description": "Tournament lineup and substitution planner — plan 5 games at once, track minutes, swap lineups on the fly.",
+  "description": "Tournament lineup and substitution planner — plan multiple games at once, track minutes, swap lineups on the fly.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
@@ -10,21 +10,27 @@
   "theme_color": "#0f172a",
   "icons": [
     {
-      "src": "/icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "src": "/logo.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "any"
     },
     {
       "src": "/icon-192.png",
-      "sizes": "192x192",
+      "sizes": "1024x1024",
       "type": "image/png",
       "purpose": "any"
     },
     {
       "src": "/icon-512.png",
-      "sizes": "512x512",
+      "sizes": "1024x1024",
       "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
       "purpose": "any"
     }
   ]

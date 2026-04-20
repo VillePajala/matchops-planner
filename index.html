@@ -7,8 +7,8 @@
 <meta name="description" content="Tournament lineup and substitution planner.">
 <meta name="theme-color" content="#0f172a">
 <link rel="manifest" href="/manifest.webmanifest">
-<link rel="icon" type="image/svg+xml" href="/icon.svg">
-<link rel="apple-touch-icon" href="/icon.svg">
+<link rel="icon" type="image/png" href="/logo.png">
+<link rel="apple-touch-icon" href="/logo.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Planner">
@@ -97,35 +97,47 @@ button { border: none; background: none; color: inherit; cursor: pointer; }
 .app-bar > * { position: relative; z-index: 1; }
 
 .app-logo {
-  display: inline-flex; align-items: center; justify-content: center;
-  width: 34px; height: 34px; border-radius: var(--r-md);
-  background: linear-gradient(to bottom, var(--accent), var(--accent-deep));
-  color: var(--primary-text-on-amber);
-  font-weight: 700; font-size: 16px; letter-spacing: 0.5px;
-  box-shadow: 0 2px 8px rgba(251,191,36,0.35);
+  width: 36px; height: 36px;
+  flex-shrink: 0;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 6px rgba(251,191,36,0.35));
 }
 .app-title {
-  flex: 1;
-  font-size: 18px; font-weight: 700; color: var(--accent);
-  letter-spacing: 0.3px;
+  flex: 1 1 auto;
+  min-width: 0;
+  font-family: 'Rajdhani', system-ui, sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: 0.4px;
   text-overflow: ellipsis; overflow: hidden; white-space: nowrap;
   text-shadow: 0 1px 2px rgba(0,0,0,0.5);
 }
 .version-badge {
-  display: none; /* shows when currentVersionName is set */
-  align-items: center; gap: 5px;
+  display: none;
+  align-items: center; gap: 4px;
   padding: 5px 10px; border-radius: var(--r-pill);
   background: rgba(56,189,248,0.15);
   border: 1px solid rgba(56,189,248,0.45);
   color: #7dd3fc;
   font-size: 11px; font-weight: 700;
-  max-width: 160px;
+  max-width: 120px;
+  flex-shrink: 0;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .version-badge.has-version { display: inline-flex; }
 .save-status {
   font-size: 10px; color: var(--success); font-weight: 600;
+  flex-shrink: 0;
   transition: opacity 0.3s;
+}
+@media (max-width: 420px) {
+  .app-title { font-size: 17px; }
+  .version-badge { max-width: 84px; font-size: 10px; padding: 4px 8px; }
+  .save-status { display: none; } /* reclaim space on narrow */
+}
+@media (max-width: 340px) {
+  .app-title { font-size: 15px; }
 }
 
 .content {
@@ -692,8 +704,8 @@ input[type="checkbox"] { accent-color: var(--success); cursor: pointer; }
 
 <!-- ═══════════════════ App bar ═══════════════════ -->
 <header class="app-bar">
-  <div class="app-logo">M</div>
-  <div class="app-title">Tournament planner</div>
+  <img class="app-logo" src="/logo.png" alt="MatchOps" width="36" height="36">
+  <div class="app-title">MatchOps Planner</div>
   <button id="version-badge" class="version-badge" title="Go to Plans tab"></button>
   <span id="save-status" class="save-status"></span>
 </header>
