@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Background -->
+  <rect width="512" height="512" rx="72" fill="#2d5d2d"/>
+  <!-- Field outline (inset for maskable safe area) -->
+  <rect x="58" y="58" width="396" height="396" rx="18" fill="none" stroke="white" stroke-width="6" opacity="0.85"/>
+  <!-- Center line + circle -->
+  <line x1="58" y1="256" x2="454" y2="256" stroke="white" stroke-width="5" opacity="0.85"/>
+  <circle cx="256" cy="256" r="50" fill="none" stroke="white" stroke-width="5" opacity="0.85"/>
+  <circle cx="256" cy="256" r="4" fill="white" opacity="0.9"/>
+  <!-- Goal boxes -->
+  <rect x="186" y="58" width="140" height="50" fill="none" stroke="white" stroke-width="5" opacity="0.85"/>
+  <rect x="186" y="404" width="140" height="50" fill="none" stroke="white" stroke-width="5" opacity="0.85"/>
+  <!-- P monogram overlay -->
+  <text x="256" y="340" font-family="system-ui, -apple-system, sans-serif" font-size="220" font-weight="900" text-anchor="middle" fill="white" opacity="0.95">P</text>
+</svg>
