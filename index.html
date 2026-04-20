@@ -4,1790 +4,1547 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>MatchOps Planner</title>
-<meta name="description" content="Tournament lineup and substitution planner — plan 5 games at once, track minutes, swap lineups on the fly.">
+<meta name="description" content="Tournament lineup and substitution planner.">
 <meta name="theme-color" content="#0f172a">
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="icon" type="image/svg+xml" href="/icon.svg">
 <link rel="apple-touch-icon" href="/icon.svg">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Planner">
 <meta name="mobile-web-app-capable" content="yes">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-  /* MatchOps Planner — dark slate theme inspired by MatchOps-Local */
-  * { box-sizing: border-box; }
-  html, body { min-height: 100%; background: #0f172a; }
-  body {
-    font-family: 'Rajdhani', system-ui, -apple-system, sans-serif;
-    font-weight: 500;
-    margin: 0;
-    padding: 14px;
-    padding-top: max(14px, env(safe-area-inset-top));
-    padding-bottom: max(14px, env(safe-area-inset-bottom));
-    padding-left: max(14px, env(safe-area-inset-left));
-    padding-right: max(14px, env(safe-area-inset-right));
-    color: #e2e8f0;
-    background:
-      radial-gradient(at top left, rgba(56,189,248,0.05), transparent 55%),
-      radial-gradient(at bottom right, rgba(99,102,241,0.06), transparent 55%),
-      #0f172a;
-    background-attachment: fixed;
-    min-height: 100vh;
-    min-height: 100dvh;
-  }
-  .app-title {
-    margin: 0 0 14px;
-    font-family: 'Rajdhani', sans-serif;
-    font-size: clamp(24px, 5vw, 34px);
-    font-weight: 700;
-    letter-spacing: 0.5px;
-    color: #fbbf24;
-    text-shadow: 0 1px 2px rgba(0,0,0,0.4);
-  }
-  .app-title .save-status {
-    display: inline-block;
-    margin-left: 10px;
-    font-size: 11px;
-    font-weight: 500;
-    letter-spacing: 0.3px;
-    color: #4ade80;
-    vertical-align: middle;
-  }
-  h1 {
-    margin: 0 0 4px;
-    font-size: 22px;
-    font-weight: 700;
-    letter-spacing: 0.5px;
-    color: #fbbf24;
-    text-shadow: 0 1px 2px rgba(0,0,0,0.5);
-  }
-  h3 {
-    margin: 0 0 8px;
-    font-size: 14px;
-    color: #cbd5e1;
-    font-weight: 600;
-    letter-spacing: 0.3px;
-  }
-  p { color: #94a3b8; }
-  p strong, p em { color: #e2e8f0; }
+/* ══════════════════ Design tokens (MatchOps family) ══════════════════ */
+:root {
+  --bg-base: #0f172a;
+  --bg-panel: #1e293b;
+  --bg-panel-soft: rgba(30,41,59,0.92);
+  --bg-panel-strong: rgba(30,41,59,0.98);
+  --bg-elev: rgba(51,65,85,0.7);
+  --border-soft: rgba(71,85,105,0.4);
+  --border: rgba(71,85,105,0.6);
+  --border-strong: rgba(100,116,139,0.8);
+  --text: #e2e8f0;
+  --text-dim: #94a3b8;
+  --text-mute: #64748b;
+  --heading: #facc15;      /* yellow-400 */
+  --accent: #fbbf24;       /* amber-400 */
+  --accent-strong: #f59e0b;/* amber-500 */
+  --accent-deep: #d97706;  /* amber-600 */
+  --primary-text-on-amber: #1e293b;
+  --success: #22c55e;
+  --warn: #fb923c;
+  --danger: #ef4444;
+  --info: #38bdf8;
+  --info-strong: #0ea5e9;
+  --glow-sky: rgba(56,189,248,0.08);
+  --glow-indigo: rgba(99,102,241,0.08);
+  --r-sm: 6px; --r-md: 8px; --r-lg: 12px; --r-xl: 16px; --r-pill: 999px;
+  --app-bar-h: 56px;
+  --bottom-nav-h: 66px;
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.35);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.5);
+}
 
-  .tabs {
-    display: flex;
-    gap: 5px;
-    margin-bottom: 14px;
-    align-items: center;
-    flex-wrap: wrap;
-    position: relative;
-  }
-  .tab {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 7px 14px;
-    background: rgba(51,65,85,0.7);
-    border: 1px solid rgba(71,85,105,0.5);
-    color: #cbd5e1;
-    cursor: pointer;
-    font-family: inherit;
-    font-size: 13px;
-    font-weight: 600;
-    border-radius: 6px;
-    user-select: none;
-    letter-spacing: 0.3px;
-    transition: all 0.15s ease;
-  }
-  .tab.selected {
-    background: linear-gradient(to bottom, #16a34a, #15803d);
-    color: white;
-    border-color: #22c55e;
-    box-shadow: 0 2px 8px rgba(34,197,94,0.3);
-  }
-  .tab:hover:not(.selected) {
-    background: rgba(71,85,105,0.8);
-    color: #f1f5f9;
-  }
-  .tab .tab-check {
-    cursor: pointer;
-    width: 14px; height: 14px;
-    margin: 0;
-    accent-color: #22c55e;
-  }
-  .tab:not(.included) { opacity: 0.5; }
-  .tab.selected:not(.included) { opacity: 0.75; }
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; padding: 0;
+  min-height: 100%;
+  background: var(--bg-base);
+}
+body {
+  font-family: 'Rajdhani', system-ui, -apple-system, sans-serif;
+  font-weight: 500;
+  color: var(--text);
+  background:
+    radial-gradient(at 20% 10%, var(--glow-sky), transparent 55%),
+    radial-gradient(at 85% 95%, var(--glow-indigo), transparent 55%),
+    var(--bg-base);
+  background-attachment: fixed;
+  min-height: 100vh;
+  min-height: 100dvh;
+  -webkit-font-smoothing: antialiased;
+}
+button, input, select { font-family: inherit; }
+button { border: none; background: none; color: inherit; cursor: pointer; }
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: rgba(15,23,42,0.5); }
+::-webkit-scrollbar-thumb { background: rgba(71,85,105,0.7); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(100,116,139,0.8); }
 
-  /* Actions hamburger (mobile-only, shows on narrow viewports) */
-  .actions-btn {
-    display: none;
-    padding: 7px 14px;
-    background: rgba(51,65,85,0.8);
-    border: 1px solid rgba(71,85,105,0.6);
-    color: #fbbf24;
-    border-radius: 6px;
-    font-size: 18px;
-    line-height: 1;
-    cursor: pointer;
-    margin-left: auto;
-    font-family: inherit;
-    font-weight: 700;
-  }
-  .actions-btn:hover { background: rgba(71,85,105,0.9); }
+/* ══════════════════ App shell ══════════════════ */
+.app-bar {
+  position: fixed; top: 0; left: 0; right: 0;
+  height: calc(var(--app-bar-h) + env(safe-area-inset-top));
+  padding-top: env(safe-area-inset-top);
+  padding-left: max(14px, env(safe-area-inset-left));
+  padding-right: max(14px, env(safe-area-inset-right));
+  display: flex; align-items: center; gap: 10px;
+  background: linear-gradient(to bottom, rgba(30,41,59,0.98), rgba(15,23,42,0.95));
+  border-bottom: 1px solid var(--border);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 1px 0 rgba(255,255,255,0.03);
+  z-index: 50;
+}
+.app-bar::before {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(to bottom, var(--glow-sky), transparent 50%);
+}
+.app-bar > * { position: relative; z-index: 1; }
 
-  .controls { margin-left: auto; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
-  .controls button, .controls > label {
-    padding: 7px 12px;
-    font-family: inherit;
-    font-size: 12px;
-    font-weight: 600;
-    border: 1px solid rgba(71,85,105,0.5);
-    background: rgba(51,65,85,0.7);
-    color: #cbd5e1;
-    cursor: pointer;
-    border-radius: 6px;
-    transition: all 0.15s ease;
-    letter-spacing: 0.3px;
-  }
-  .controls button:hover, .controls > label:hover {
-    background: rgba(71,85,105,0.9);
-    color: #f1f5f9;
-    transform: translateY(-1px);
-  }
-  .controls button:active, .controls > label:active { transform: translateY(0) scale(0.97); }
+.app-logo {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px; border-radius: var(--r-md);
+  background: linear-gradient(to bottom, var(--accent), var(--accent-deep));
+  color: var(--primary-text-on-amber);
+  font-weight: 700; font-size: 16px; letter-spacing: 0.5px;
+  box-shadow: 0 2px 8px rgba(251,191,36,0.35);
+}
+.app-title {
+  flex: 1;
+  font-size: 18px; font-weight: 700; color: var(--accent);
+  letter-spacing: 0.3px;
+  text-overflow: ellipsis; overflow: hidden; white-space: nowrap;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+}
+.version-badge {
+  display: none; /* shows when currentVersionName is set */
+  align-items: center; gap: 5px;
+  padding: 5px 10px; border-radius: var(--r-pill);
+  background: rgba(56,189,248,0.15);
+  border: 1px solid rgba(56,189,248,0.45);
+  color: #7dd3fc;
+  font-size: 11px; font-weight: 700;
+  max-width: 160px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.version-badge.has-version { display: inline-flex; }
+.save-status {
+  font-size: 10px; color: var(--success); font-weight: 600;
+  transition: opacity 0.3s;
+}
 
-  .versions-wrap { position: relative; }
-  .versions-menu {
-    position: absolute;
-    top: calc(100% + 6px);
-    right: 0;
-    background: linear-gradient(to bottom, #1e293b, #0f172a);
-    border: 1px solid rgba(71,85,105,0.6);
-    border-radius: 8px;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
-    min-width: 320px;
-    max-width: 92vw;
-    max-height: 60vh;
-    overflow-y: auto;
-    z-index: 100;
-    padding: 4px 0;
-    font-size: 13px;
-    display: none;
-    color: #e2e8f0;
-  }
-  .versions-wrap.open .versions-menu { display: block; }
-  .versions-item {
-    display: flex;
-    align-items: center;
-    padding: 9px 12px;
-    cursor: pointer;
-    gap: 8px;
-    border-bottom: 1px solid rgba(71,85,105,0.25);
-  }
-  .versions-item:hover { background: rgba(56,189,248,0.12); }
-  .versions-item.save-row {
-    font-weight: 700;
-    color: #86efac;
-    border-bottom: 2px solid rgba(34,197,94,0.3);
-  }
-  .versions-item.save-row:hover { background: rgba(34,197,94,0.15); }
-  .versions-item.current {
-    background: rgba(56,189,248,0.15);
-    border-left: 3px solid #38bdf8;
-    padding-left: 9px;
-  }
-  .versions-item.current:hover { background: rgba(56,189,248,0.25); }
-  .versions-item.current .version-name::before { content: "📂 "; }
-  .version-name { flex: 1; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #e2e8f0; }
-  .version-time { font-size: 10px; color: #94a3b8; font-weight: normal; }
-  .version-rename, .version-delete {
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: 0 6px;
-    line-height: 1;
-    font-family: inherit;
-  }
-  .version-rename { color: #86efac; font-size: 14px; }
-  .version-rename:hover { color: #4ade80; }
-  .version-delete { color: #fca5a5; font-size: 15px; }
-  .version-delete:hover { color: #f87171; }
-  .versions-empty { padding: 12px; color: #64748b; font-style: italic; }
+.content {
+  padding-top: calc(var(--app-bar-h) + env(safe-area-inset-top) + 12px);
+  padding-bottom: calc(var(--bottom-nav-h) + env(safe-area-inset-bottom) + 12px);
+  padding-left: max(12px, env(safe-area-inset-left));
+  padding-right: max(12px, env(safe-area-inset-right));
+  min-height: 100vh; min-height: 100dvh;
+}
+.tab-panel { display: none; animation: fadeSlideIn 0.22s ease-out; }
+.tab-panel.active { display: block; }
+@keyframes fadeSlideIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
 
-  .current-version-label {
-    display: none;
-    font-size: 11px;
-    font-weight: 700;
-    padding: 6px 10px;
-    color: #7dd3fc;
-    background: rgba(56,189,248,0.15);
-    border: 1px solid rgba(56,189,248,0.4);
-    border-radius: 6px;
-    max-width: 200px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    align-self: center;
-    letter-spacing: 0.3px;
-  }
-  .current-version-label.has-version { display: inline-block; }
+.bottom-nav {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  height: calc(var(--bottom-nav-h) + env(safe-area-inset-bottom));
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: max(6px, env(safe-area-inset-left));
+  padding-right: max(6px, env(safe-area-inset-right));
+  display: flex; align-items: stretch;
+  background: linear-gradient(to top, rgba(15,23,42,0.98), rgba(30,41,59,0.95));
+  border-top: 1px solid var(--border);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  z-index: 50;
+  box-shadow: 0 -2px 12px rgba(0,0,0,0.3);
+}
+.bottom-nav::before {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: rgba(99,102,241,0.06);
+  mix-blend-mode: soft-light;
+}
+.nav-item {
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 2px; padding: 6px 4px;
+  color: var(--text-dim);
+  font-size: 11px; font-weight: 700; letter-spacing: 0.3px;
+  text-transform: uppercase;
+  transition: color 0.15s, transform 0.15s;
+  position: relative;
+}
+.nav-item .nav-icon { font-size: 22px; line-height: 1; }
+.nav-item.active { color: var(--accent); }
+.nav-item.active::after {
+  content: ''; position: absolute; top: 0; left: 22%; right: 22%;
+  height: 3px; border-radius: 0 0 3px 3px;
+  background: linear-gradient(to right, var(--accent-strong), var(--accent));
+  box-shadow: 0 0 10px var(--accent);
+}
+.nav-item:active { transform: scale(0.94); }
 
-  .game-view { margin-bottom: 16px; }
-  .games-container {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(370px, 1fr));
-    gap: 12px;
-  }
-  .games-empty {
-    padding: 40px 20px;
-    text-align: center;
-    color: #94a3b8;
-    background: rgba(30,41,59,0.6);
-    border-radius: 8px;
-    border: 2px dashed rgba(71,85,105,0.6);
-  }
+/* ══════════════════ Games tab ══════════════════ */
+.ribbon {
+  display: flex; gap: 8px; overflow-x: auto;
+  padding: 4px 2px 12px;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  margin: 0 -6px 12px;
+  padding-left: 6px; padding-right: 6px;
+}
+.ribbon-game {
+  flex: 0 0 auto; scroll-snap-align: start;
+  padding: 10px 14px; border-radius: var(--r-md);
+  background: var(--bg-elev);
+  border: 1px solid var(--border-soft);
+  color: var(--text-dim);
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+  min-width: 128px;
+  transition: all 0.15s ease;
+}
+.ribbon-game .ribbon-label {
+  font-size: 10px; font-weight: 700; color: var(--text-mute);
+  letter-spacing: 0.6px; text-transform: uppercase;
+}
+.ribbon-game .ribbon-opp {
+  font-size: 14px; font-weight: 600; color: var(--text);
+}
+.ribbon-game .ribbon-time {
+  font-size: 10px; color: var(--text-mute); font-variant-numeric: tabular-nums;
+}
+.ribbon-game.active {
+  background: linear-gradient(to bottom, rgba(251,191,36,0.2), rgba(217,119,6,0.15));
+  border-color: var(--accent);
+  color: var(--text);
+  box-shadow: 0 2px 12px rgba(251,191,36,0.2);
+}
+.ribbon-game.active .ribbon-label,
+.ribbon-game.active .ribbon-opp { color: var(--accent); }
+.ribbon-game.excluded { opacity: 0.45; }
+.ribbon-game:active { transform: scale(0.97); }
 
-  .half {
-    background: linear-gradient(to bottom, rgba(30,41,59,0.95), rgba(15,23,42,0.95));
-    border: 1px solid rgba(71,85,105,0.5);
-    border-radius: 10px;
-    padding: 10px 10px 12px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-    min-width: 0;
-    position: relative;
-  }
-  .half::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(to bottom, rgba(56,189,248,0.05), transparent 40%);
-    border-radius: 10px;
-    pointer-events: none;
-  }
-  .half > * { position: relative; z-index: 1; }
-  .half h3 {
-    margin: 0 0 10px;
-    font-size: 16px;
-    font-weight: 700;
-    color: #fbbf24;
-    letter-spacing: 0.5px;
-  }
-  .half.focused {
-    outline: 2px solid #22c55e;
-    outline-offset: -1px;
-    box-shadow: 0 0 20px rgba(34,197,94,0.25), 0 4px 12px rgba(0,0,0,0.3);
-  }
-  .pitch {
-    display: grid;
-    grid-template-rows: repeat(6, auto);
-    grid-template-columns: 1fr 1fr;
-    gap: 6px;
-    background: linear-gradient(to bottom, #166534, #14532d);
-    padding: 10px 8px;
-    border-radius: 8px;
-    margin-bottom: 10px;
-    box-shadow: inset 0 2px 6px rgba(0,0,0,0.35);
-    position: relative;
-  }
-  .pitch::before {
-    /* Center dashed line on pitch */
-    content: '';
-    position: absolute;
-    left: 10px; right: 10px;
-    top: 50%;
-    border-top: 1px dashed rgba(255,255,255,0.15);
-    pointer-events: none;
-  }
-  .pos-box {
-    background: rgba(0,0,0,0.35);
-    border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 5px;
-    padding: 3px 4px 4px;
-    width: 155px;
-    position: relative;
-    z-index: 1;
-  }
-  .pos-box.pos-st  { grid-row: 1; grid-column: 1 / 3; justify-self: center; }
-  .pos-box.pos-cam { grid-row: 2; grid-column: 1 / 3; justify-self: center; }
-  .pos-box.pos-lm  { grid-row: 3; grid-column: 1; justify-self: end; }
-  .pos-box.pos-rm  { grid-row: 3; grid-column: 2; justify-self: start; }
-  .pos-box.pos-cdm { grid-row: 4; grid-column: 1 / 3; justify-self: center; }
-  .pos-box.pos-lb  { grid-row: 5; grid-column: 1; justify-self: end; }
-  .pos-box.pos-rb  { grid-row: 5; grid-column: 2; justify-self: start; }
-  .pos-box.pos-gk  { grid-row: 6; grid-column: 1 / 3; justify-self: center; }
+/* Game toolbar (history + include toggle) */
+.game-toolbar {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.game-toolbar .toolbar-left {
+  display: flex; align-items: center; gap: 8px; flex: 1;
+  min-width: 0;
+}
+.game-toolbar .toolbar-meta {
+  font-size: 11px; color: var(--text-dim);
+  font-weight: 600; letter-spacing: 0.3px; text-transform: uppercase;
+}
+.include-toggle {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 10px; border-radius: var(--r-pill);
+  background: var(--bg-elev); border: 1px solid var(--border-soft);
+  font-size: 11px; font-weight: 700; color: var(--text-dim);
+  text-transform: uppercase; letter-spacing: 0.3px;
+}
+.include-toggle input { accent-color: var(--success); width: 13px; height: 13px; }
+.include-toggle.active { background: rgba(34,197,94,0.12); border-color: rgba(34,197,94,0.5); color: var(--success); }
+.icon-btn {
+  width: 34px; height: 34px; border-radius: var(--r-md);
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--bg-elev); border: 1px solid var(--border-soft);
+  color: var(--text-dim); font-size: 16px;
+  transition: all 0.15s;
+}
+.icon-btn:not(:disabled):hover { background: rgba(71,85,105,0.9); color: var(--text); }
+.icon-btn:not(:disabled):active { transform: scale(0.94); }
+.icon-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 
-  .pos-label {
-    display: flex;
-    align-items: center;
-    gap: 3px;
-    font-family: inherit;
-    font-size: 9px;
-    color: #fbbf24;
-    font-weight: 700;
-    letter-spacing: 0.6px;
-    margin-bottom: 3px;
-    text-transform: uppercase;
-  }
-  .pos-spacer { flex: 0 0 20px; }
-  .pos-name { flex: 1; text-align: center; }
-  .pos-wrench {
-    flex: 0 0 20px;
-    background: rgba(255,255,255,0.1);
-    color: #fbbf24;
-    border: 1px solid rgba(255,255,255,0.25);
-    border-radius: 3px;
-    font-size: 11px;
-    padding: 0;
-    line-height: 1.1;
-    cursor: pointer;
-    font-weight: 700;
-    text-align: center;
-    font-family: inherit;
-  }
-  .pos-wrench:hover { background: rgba(255,255,255,0.25); }
-  .pos-box.edit-mode .pos-wrench { background: #f59e0b; color: #78350f; border-color: #fbbf24; }
+/* Pitch card */
+.pitch-card {
+  background: linear-gradient(to bottom, var(--bg-panel-strong), rgba(15,23,42,0.96));
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 12px;
+  box-shadow: var(--shadow-md);
+  position: relative;
+  margin-bottom: 12px;
+}
+.pitch-card::before {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  border-radius: var(--r-lg);
+  background: linear-gradient(to bottom, var(--glow-sky), transparent 45%);
+}
+.pitch-card > * { position: relative; z-index: 1; }
 
-  .pos-actions {
-    display: none;
-    gap: 4px;
-    flex-wrap: wrap;
-    justify-content: center;
-    margin-top: 4px;
-  }
-  .pos-box.edit-mode .pos-actions { display: flex; }
-  .pos-action {
-    background: rgba(255,255,255,0.15);
-    color: white;
-    border: 1px solid rgba(255,255,255,0.3);
-    border-radius: 3px;
-    font-family: inherit;
-    font-size: 10px;
-    font-weight: 600;
-    padding: 3px 7px;
-    line-height: 1.3;
-    cursor: pointer;
-    text-transform: none;
-    letter-spacing: 0;
-    white-space: nowrap;
-  }
-  .pos-action:hover { background: rgba(255,255,255,0.3); }
-  .chip-row { display: flex; gap: 2px; }
+.pitch {
+  display: grid; grid-template-rows: repeat(6, auto); grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  background:
+    radial-gradient(at 50% 50%, rgba(255,255,255,0.05), transparent 60%),
+    linear-gradient(to bottom, #166534, #14532d);
+  padding: 12px 10px;
+  border-radius: var(--r-md);
+  box-shadow: inset 0 2px 6px rgba(0,0,0,0.4);
+  position: relative;
+  margin-bottom: 10px;
+}
+.pitch::before {
+  /* center line */
+  content: ''; position: absolute; left: 10px; right: 10px; top: 50%;
+  border-top: 1px dashed rgba(255,255,255,0.18);
+  pointer-events: none;
+}
+.pitch::after {
+  /* center circle */
+  content: ''; position: absolute; left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  width: 60px; height: 60px; border-radius: 50%;
+  border: 1px dashed rgba(255,255,255,0.18);
+  pointer-events: none;
+}
+.pos-box {
+  background: rgba(0,0,0,0.4);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 6px;
+  padding: 4px 5px 5px;
+  width: 156px;
+  position: relative; z-index: 1;
+}
+.pos-box.pos-st  { grid-row: 1; grid-column: 1 / 3; justify-self: center; }
+.pos-box.pos-cam { grid-row: 2; grid-column: 1 / 3; justify-self: center; }
+.pos-box.pos-lm  { grid-row: 3; grid-column: 1; justify-self: end; }
+.pos-box.pos-rm  { grid-row: 3; grid-column: 2; justify-self: start; }
+.pos-box.pos-cdm { grid-row: 4; grid-column: 1 / 3; justify-self: center; }
+.pos-box.pos-lb  { grid-row: 5; grid-column: 1; justify-self: end; }
+.pos-box.pos-rb  { grid-row: 5; grid-column: 2; justify-self: start; }
+.pos-box.pos-gk  { grid-row: 6; grid-column: 1 / 3; justify-self: center; }
 
-  .slot {
-    padding: 5px 4px;
-    font-family: inherit;
-    font-size: 13px;
-    font-weight: 600;
-    text-align: center;
-    cursor: grab;
-    user-select: none;
-    border-radius: 4px;
-    min-height: 30px;
-    line-height: 1.2;
-    flex: 1;
-    min-width: 0;
-    background: #f1f5f9;
-    color: #1e293b;
-    border: 1.5px solid #cbd5e1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-    transition: transform 0.1s ease;
-  }
-  .slot:hover { transform: translateY(-1px); }
-  .slot:active { cursor: grabbing; transform: scale(0.96); }
-  .slot.drag-over {
-    border-color: #22c55e !important;
-    background: #bbf7d0 !important;
-    box-shadow: 0 0 0 3px rgba(34,197,94,0.3);
-  }
+.pos-label {
+  display: flex; align-items: center; gap: 3px;
+  font-size: 9px; color: var(--accent); font-weight: 700;
+  letter-spacing: 0.6px; text-transform: uppercase; margin-bottom: 4px;
+}
+.pos-spacer { flex: 0 0 20px; }
+.pos-name { flex: 1; text-align: center; }
 
-  /* Tap-to-swap selection (touch-friendly) */
-  .slot.tap-selected {
-    outline: 3px solid #f59e0b;
-    outline-offset: 2px;
-    box-shadow: 0 0 12px rgba(245,158,11,0.6);
-    background: #fed7aa !important;
-    z-index: 2;
-    position: relative;
-  }
+.chip-row { display: flex; gap: 3px; }
+.slot {
+  padding: 6px 4px 9px;
+  font-size: 13px; font-weight: 600;
+  text-align: center; user-select: none;
+  border-radius: 5px;
+  min-height: 34px; line-height: 1.2;
+  flex: 1; min-width: 0;
+  background: #f1f5f9; color: var(--primary-text-on-amber);
+  border: 1.5px solid #cbd5e1;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+  position: relative;
+  cursor: grab;
+  transition: transform 0.1s ease, box-shadow 0.15s ease;
+}
+.slot:active { cursor: grabbing; transform: scale(0.97); }
+.slot.drag-over { border-color: var(--success) !important; box-shadow: 0 0 0 3px rgba(34,197,94,0.4); }
+.slot.tap-selected {
+  outline: 3px solid var(--accent-strong); outline-offset: 2px;
+  box-shadow: 0 0 14px rgba(245,158,11,0.6);
+  z-index: 2;
+}
+.slot.highlighted { outline: 3px solid #f97316; outline-offset: 2px; z-index: 1; }
+.slot:not(.highlighted).any-highlighted { opacity: 0.3; }
 
-  /* Player-tracking highlight */
-  .slot.highlighted {
-    outline: 3px solid #f97316;
-    outline-offset: 2px;
-    position: relative;
-    z-index: 1;
-  }
-  .slot:not(.highlighted).any-highlighted { opacity: 0.3; }
+.slot[data-half="h2"] { background: #fde68a; color: #78350f; border-color: #f59e0b; }
+.chip-row.full-game .slot[data-half="h1"] {
+  background: linear-gradient(to bottom, #86efac, #4ade80);
+  color: #14532d; border-color: #22c55e; flex: 1; font-weight: 700;
+}
+.chip-row.full-game .slot[data-half="h2"] { display: none; }
 
-  /* H2 substitution chip — warm amber */
-  .slot[data-half="h2"] {
-    background: #fde68a;
-    color: #78350f;
-    border-color: #f59e0b;
-  }
+.slot.benched-both {
+  background: rgba(239,68,68,0.4) !important;
+  border-color: var(--danger) !important;
+  color: #fecaca !important;
+  font-weight: 700;
+}
+.slot.plays-both { box-shadow: inset 0 0 0 2px var(--danger); }
 
-  /* Full-game merged chip — emerald */
-  .chip-row.full-game .slot[data-half="h1"] {
-    background: linear-gradient(to bottom, #86efac, #4ade80);
-    color: #14532d;
-    border-color: #22c55e;
-    border-radius: 4px;
-    flex: 1;
-    font-weight: 700;
-  }
-  .chip-row.full-game .slot[data-half="h2"] { display: none; }
+/* per-chip minute bar */
+.chip-min-bar {
+  position: absolute; bottom: 1px; left: 3px; right: 3px;
+  height: 3px; border-radius: 2px;
+  background: rgba(0,0,0,0.25);
+  overflow: hidden;
+}
+.chip-min-fill {
+  height: 100%; border-radius: 2px;
+  background: hsl(var(--chip-hue, 60), 75%, 45%);
+  width: var(--chip-ratio, 0%);
+}
 
-  .bench-section { display: flex; flex-direction: column; gap: 6px; }
-  .bench-label {
-    font-family: inherit;
-    font-size: 9px;
-    color: #94a3b8;
-    font-weight: 700;
-    margin-bottom: 2px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-  }
-  .bench-row .chip-row {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 4px;
-  }
-  .bench-row .slot[data-half="h1"] {
-    background: rgba(148,163,184,0.25);
-    color: #cbd5e1;
-    border-color: rgba(148,163,184,0.4);
-  }
-  .bench-row .slot[data-half="h2"] {
-    background: rgba(245,158,11,0.25);
-    color: #fbbf24;
-    border-color: rgba(245,158,11,0.5);
-  }
+/* Bench drawer */
+.bench-drawer-toggle {
+  width: 100%; padding: 10px 12px;
+  background: var(--bg-elev); border: 1px solid var(--border-soft);
+  color: var(--text-dim);
+  border-radius: var(--r-md);
+  font-size: 11px; font-weight: 700;
+  letter-spacing: 0.5px; text-transform: uppercase;
+  display: flex; align-items: center; justify-content: space-between;
+  transition: background 0.15s;
+}
+.bench-drawer-toggle:hover { background: rgba(71,85,105,0.85); }
+.bench-drawer-toggle .chev { transition: transform 0.2s; }
+.bench-drawer-toggle[aria-expanded="true"] .chev { transform: rotate(180deg); }
+.bench-section {
+  display: none; flex-direction: column; gap: 8px;
+  margin-top: 8px; padding: 10px;
+  background: rgba(15,23,42,0.5); border-radius: var(--r-md);
+  border: 1px solid var(--border-soft);
+}
+.bench-section.open { display: flex; }
+.bench-row .bench-label {
+  font-size: 9px; color: var(--text-mute); font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;
+}
+.bench-row .chip-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
+.bench-row .slot[data-half="h1"] {
+  background: rgba(148,163,184,0.25); color: #cbd5e1;
+  border-color: rgba(148,163,184,0.4);
+}
+.bench-row .slot[data-half="h2"] {
+  background: rgba(245,158,11,0.25); color: #fbbf24;
+  border-color: rgba(245,158,11,0.5);
+}
 
-  .slot.benched-both {
-    background: rgba(239,68,68,0.35) !important;
-    border-color: #ef4444 !important;
-    color: #fecaca !important;
-    font-weight: 700;
-    box-shadow: 0 0 0 1px #ef4444 inset;
-  }
+/* Mini minute bar (per-game strip) */
+.game-min-strip {
+  margin-top: 12px;
+  padding: 10px 12px;
+  background: rgba(15,23,42,0.55);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--r-md);
+}
+.game-min-strip h4 {
+  margin: 0 0 8px; font-size: 10px; font-weight: 700;
+  color: var(--text-mute); text-transform: uppercase; letter-spacing: 0.6px;
+}
+.game-min-strip .strip-row {
+  display: grid; grid-template-columns: repeat(11, 1fr); gap: 3px;
+}
+.game-min-strip .strip-cell {
+  height: 20px; border-radius: 3px; position: relative;
+  background: rgba(30,41,59,0.8); border: 1px solid var(--border-soft);
+  cursor: pointer;
+}
+.game-min-strip .strip-fill {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  background: hsl(var(--cell-hue, 60), 70%, 45%);
+  height: var(--cell-h, 0%);
+  border-radius: 0 0 2px 2px;
+}
+.game-min-strip .strip-cell .strip-init {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  font-size: 8px; font-weight: 700; color: var(--text);
+  text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+}
 
-  /* Plays-both warning (split box, player still on field other half) */
-  .slot.plays-both { box-shadow: inset 0 0 0 2px #ef4444; }
+/* ══════════════════ Minutes tab — player cards ══════════════════ */
+.cards-list { display: flex; flex-direction: column; gap: 10px; }
+.player-card {
+  display: grid;
+  grid-template-columns: 44px 1fr auto;
+  grid-template-areas:
+    'avatar name total'
+    'avatar bar bar'
+    'games games games';
+  gap: 6px 12px;
+  padding: 12px;
+  background: linear-gradient(to bottom, var(--bg-panel-soft), rgba(15,23,42,0.85));
+  border: 1px solid var(--border-soft);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-md);
+  position: relative;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
+}
+.player-card:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(0,0,0,0.45); }
+.player-card:active { transform: scale(0.995); }
+.player-card.priority { border-color: rgba(34,197,94,0.45); }
+.player-card.under { border-color: rgba(239,68,68,0.45); }
+.card-avatar {
+  grid-area: avatar;
+  width: 44px; height: 44px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 15px; font-weight: 700;
+  background: var(--avatar-bg, var(--bg-elev));
+  color: var(--avatar-fg, var(--text));
+  border: 2px solid var(--avatar-ring, var(--border));
+  box-shadow: 0 0 0 3px var(--bg-base), 0 0 12px var(--avatar-glow, transparent);
+}
+.card-name {
+  grid-area: name;
+  font-size: 16px; font-weight: 700; letter-spacing: 0.3px;
+  align-self: center; color: var(--text);
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.card-total {
+  grid-area: total;
+  align-self: center; text-align: right;
+  font-size: 16px; font-weight: 700; color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+.card-total .ratio {
+  display: block; font-size: 10px; font-weight: 600; color: var(--text-mute);
+  letter-spacing: 0.3px;
+}
+.card-bar {
+  grid-area: bar;
+  height: 6px; border-radius: 4px; background: rgba(15,23,42,0.8);
+  border: 1px solid var(--border-soft);
+  overflow: hidden;
+}
+.card-bar-fill {
+  height: 100%; border-radius: 3px;
+  background: linear-gradient(to right, hsl(var(--card-hue, 60), 70%, 40%), hsl(var(--card-hue, 60), 75%, 55%));
+  width: var(--card-width, 0%);
+  transition: width 0.3s;
+}
+.card-games {
+  grid-area: games;
+  display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px;
+  margin-top: 6px;
+}
+.game-dot {
+  padding: 4px 2px;
+  border-radius: 4px;
+  background: rgba(15,23,42,0.7);
+  border: 1px solid var(--border-soft);
+  font-size: 10px; font-weight: 700;
+  text-align: center; color: var(--text-mute);
+  display: flex; flex-direction: column; align-items: center; gap: 1px;
+}
+.game-dot .dot-label { font-size: 9px; color: var(--text-mute); letter-spacing: 0.3px; }
+.game-dot .dot-mins { font-size: 10px; font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; }
+.game-dot.excluded { opacity: 0.4; text-decoration: line-through; }
+.game-dot.full { background: rgba(34,197,94,0.2); border-color: rgba(34,197,94,0.5); color: #86efac; }
+.game-dot.half { background: rgba(251,191,36,0.15); border-color: rgba(251,191,36,0.4); color: #fde68a; }
+.game-dot.zero { background: rgba(239,68,68,0.15); border-color: rgba(239,68,68,0.4); color: #fca5a5; }
+.game-dot .gk-badge-tiny {
+  font-size: 7px; font-weight: 700;
+  padding: 1px 3px; border-radius: 2px;
+  background: #1d4ed8; color: white; letter-spacing: 0.3px;
+}
 
-  .game-warning {
-    background: rgba(251,146,60,0.2);
-    border: 1.5px solid #fb923c;
-    color: #fed7aa;
-    padding: 5px 10px;
-    margin: 0 0 8px;
-    border-radius: 5px;
-    font-size: 11px;
-    font-weight: 600;
-    line-height: 1.3;
-  }
+/* Section title (used on tabs) */
+.section-title {
+  display: flex; align-items: center; justify-content: space-between;
+  margin: 0 0 12px;
+  font-size: 18px; font-weight: 700;
+  color: var(--heading); letter-spacing: 0.5px;
+}
+.section-title .count { color: var(--text-dim); font-size: 13px; font-weight: 600; }
 
-  /* Player list */
-  .player-list {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 6px;
-    padding: 12px;
-    background: linear-gradient(to bottom, rgba(30,41,59,0.95), rgba(15,23,42,0.9));
-    border: 1px solid rgba(71,85,105,0.4);
-    border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-    margin-bottom: 12px;
-  }
-  .player-pill {
-    display: inline-flex;
-    align-items: baseline;
-    gap: 6px;
-    padding: 6px 12px;
-    border-radius: 18px;
-    border: 2px solid;
-    font-family: inherit;
-    font-size: 13px;
-    font-weight: 700;
-    cursor: pointer;
-    user-select: none;
-    letter-spacing: 0.3px;
-    background: var(--pill-bg, rgba(51,65,85,0.7));
-    border-color: var(--pill-border, rgba(71,85,105,0.6));
-    color: var(--pill-color, #cbd5e1);
-    transition: transform 0.1s ease;
-  }
-  .player-pill:hover { transform: scale(1.05); }
-  .player-pill .player-min {
-    font-size: 11px;
-    font-weight: 700;
-    opacity: 0.9;
-  }
-  .player-pill .player-ratio {
-    font-size: 9px;
-    opacity: 0.7;
-    font-weight: 600;
-  }
-  .player-pill.highlighted {
-    outline: 3px solid #f97316;
-    outline-offset: 2px;
-  }
+/* ══════════════════ Plans tab ══════════════════ */
+.plans-section {
+  background: linear-gradient(to bottom, var(--bg-panel-soft), rgba(15,23,42,0.85));
+  border: 1px solid var(--border-soft);
+  border-radius: var(--r-md);
+  padding: 14px;
+  margin-bottom: 14px;
+  position: relative;
+  box-shadow: var(--shadow-md);
+}
+.plans-section::before {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  border-radius: var(--r-md);
+  background: linear-gradient(to bottom, var(--glow-sky), transparent 40%);
+}
+.plans-section > * { position: relative; z-index: 1; }
+.plans-section h4 {
+  margin: 0 0 10px; font-size: 11px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.6px;
+  color: var(--text-mute);
+}
+.plans-section.danger h4 { color: #fca5a5; }
 
-  /* Totals table — fits viewport, never scrolls sideways */
-  .totals {
-    background: linear-gradient(to bottom, rgba(30,41,59,0.95), rgba(15,23,42,0.9));
-    border: 1px solid rgba(71,85,105,0.4);
-    border-radius: 8px;
-    padding: 10px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-  }
-  .totals h3 { color: #fbbf24; margin-bottom: 6px; }
-  .totals table {
-    width: 100%;
-    border-collapse: collapse;
-    font-family: inherit;
-    font-size: 12px;
-    table-layout: fixed;
-  }
-  .totals th, .totals td {
-    padding: 5px 4px;
-    text-align: left;
-    border-bottom: 1px solid rgba(71,85,105,0.3);
-    color: #cbd5e1;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .totals th:first-child, .totals td:first-child {
-    width: 22%;
-    max-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .totals th {
-    background: rgba(51,65,85,0.5);
-    font-weight: 700;
-    font-size: 11px;
-    text-transform: uppercase;
-    color: #94a3b8;
-    letter-spacing: 0.5px;
-  }
-  .totals td.min-cell {
-    text-align: right;
-    font-variant-numeric: tabular-nums;
-    font-weight: 600;
-  }
-  .totals .total-col { font-weight: 700; background: rgba(51,65,85,0.4); color: #fbbf24; }
-  .totals .zero { color: #f87171; font-weight: 700; }
-  .totals .below-half { color: #fb923c; }
-  .totals .priority { color: #4ade80; font-weight: 700; }
-  .totals th.inactive, .totals td.min-cell.inactive {
-    color: #64748b;
-    text-decoration: line-through;
-    background: rgba(30,41,59,0.7);
-  }
-  .totals .gk-mark {
-    display: inline-block;
-    font-size: 9px;
-    background: #1d4ed8;
-    color: white;
-    padding: 1px 5px;
-    border-radius: 3px;
-    margin-right: 4px;
-    font-weight: 700;
-    letter-spacing: 0.4px;
-    vertical-align: middle;
-    text-decoration: none;
-  }
-  .totals p { color: #94a3b8; font-size: 11px; }
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 11px 16px;
+  border-radius: var(--r-md);
+  font-size: 13px; font-weight: 700; letter-spacing: 0.3px;
+  border: 1px solid var(--border);
+  background: var(--bg-elev);
+  color: var(--text);
+  transition: all 0.15s ease;
+  width: 100%;
+}
+.btn:active { transform: scale(0.97); }
+.btn:hover { background: rgba(71,85,105,0.9); }
+.btn.primary {
+  background: linear-gradient(to bottom, var(--accent-strong), var(--accent-deep));
+  color: var(--primary-text-on-amber); border-color: var(--accent);
+  box-shadow: 0 2px 10px rgba(251,191,36,0.25);
+}
+.btn.primary:hover { background: linear-gradient(to bottom, var(--accent), var(--accent-strong)); }
+.btn.danger {
+  background: rgba(239,68,68,0.15); border-color: rgba(239,68,68,0.5); color: #fca5a5;
+}
+.btn.danger:hover { background: rgba(239,68,68,0.25); }
+.btn + .btn { margin-top: 8px; }
+.btn-row { display: flex; gap: 8px; }
+.btn-row .btn { flex: 1; width: auto; }
 
-  /* Scrollbar */
-  ::-webkit-scrollbar { width: 10px; height: 10px; }
-  ::-webkit-scrollbar-track { background: rgba(15,23,42,0.5); }
-  ::-webkit-scrollbar-thumb { background: rgba(71,85,105,0.7); border-radius: 5px; }
-  ::-webkit-scrollbar-thumb:hover { background: rgba(100,116,139,0.8); }
+.current-plan-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px; margin-bottom: 12px;
+  background: rgba(56,189,248,0.08);
+  border: 1px solid rgba(56,189,248,0.3);
+  border-radius: var(--r-md);
+}
+.current-plan-row .icon { font-size: 22px; }
+.current-plan-row .meta { flex: 1; min-width: 0; }
+.current-plan-row .name {
+  font-weight: 700; font-size: 14px; color: var(--text);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.current-plan-row .ts { font-size: 11px; color: var(--text-dim); }
 
-  /* Focus visibility */
-  button:focus-visible, .tab:focus-visible, .slot:focus-visible, .pos-wrench:focus-visible {
-    outline: 2px solid #22c55e;
-    outline-offset: 2px;
+.version-list { display: flex; flex-direction: column; gap: 6px; }
+.version-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 12px; border-radius: var(--r-md);
+  background: rgba(15,23,42,0.6);
+  border: 1px solid var(--border-soft);
+  transition: background 0.15s;
+}
+.version-row:hover { background: rgba(30,41,59,0.8); }
+.version-row.current {
+  background: rgba(56,189,248,0.12);
+  border-color: rgba(56,189,248,0.5);
+}
+.version-row .vname { flex: 1; font-weight: 700; font-size: 14px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
+.version-row .vtime { font-size: 10px; color: var(--text-mute); white-space: nowrap; }
+.version-row .vbtn {
+  width: 30px; height: 30px; border-radius: var(--r-sm);
+  background: transparent; color: var(--text-dim);
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.version-row .vbtn:hover { background: rgba(71,85,105,0.5); color: var(--text); }
+.version-row .vbtn.delete:hover { background: rgba(239,68,68,0.2); color: #fca5a5; }
+.version-empty { padding: 14px; text-align: center; color: var(--text-mute); font-style: italic; }
+
+/* ══════════════════ Bottom sheet ══════════════════ */
+.sheet-backdrop {
+  position: fixed; inset: 0; z-index: 90;
+  background: rgba(0,0,0,0.5);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  display: none;
+  animation: fadeIn 0.2s;
+}
+.sheet-backdrop.open { display: block; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+.bottom-sheet {
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 100;
+  background: linear-gradient(to bottom, var(--bg-panel-strong), rgba(15,23,42,0.98));
+  border-top: 1px solid var(--border);
+  border-top-left-radius: 20px; border-top-right-radius: 20px;
+  padding: 14px 14px calc(18px + env(safe-area-inset-bottom));
+  box-shadow: 0 -8px 30px rgba(0,0,0,0.5);
+  transform: translateY(100%);
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  max-height: 75vh; overflow-y: auto;
+}
+.bottom-sheet.open { transform: translateY(0); }
+.sheet-handle {
+  width: 40px; height: 4px; border-radius: 2px;
+  background: rgba(148,163,184,0.4);
+  margin: 0 auto 14px;
+}
+.sheet-title {
+  text-align: center; font-size: 16px; font-weight: 700; color: var(--accent);
+  margin: 0 0 6px;
+}
+.sheet-sub { text-align: center; font-size: 12px; color: var(--text-dim); margin: 0 0 14px; }
+.sheet-actions { display: flex; flex-direction: column; gap: 8px; }
+
+/* ══════════════════ Misc ══════════════════ */
+.empty-state {
+  padding: 40px 16px; text-align: center; color: var(--text-dim);
+  border: 2px dashed var(--border-soft); border-radius: var(--r-md);
+}
+input[type="checkbox"] { accent-color: var(--success); cursor: pointer; }
+
+/* ══════════════════ Narrow screens ══════════════════ */
+@media (max-width: 420px) {
+  .pos-box { width: 140px; }
+  .pitch { gap: 6px; padding: 10px 8px; }
+  .ribbon-game { min-width: 112px; padding: 9px 12px; }
+  .ribbon-game .ribbon-opp { font-size: 13px; }
+  .game-min-strip .strip-cell .strip-init { font-size: 7px; }
+}
+
+/* ══════════════════ Wider / tablet+ ══════════════════ */
+@media (min-width: 900px) {
+  .content {
+    max-width: 960px; margin: 0 auto;
   }
-
-  /* ═══════════════ Mobile / narrow viewports ═══════════════ */
-  @media (max-width: 780px) {
-    body { padding: 10px; }
-    .app-title { margin-bottom: 10px; }
-    .app-title .save-status { display: block; margin: 2px 0 0; }
-
-    .tabs {
-      gap: 4px;
-      flex-wrap: wrap;
-      align-items: center;
-    }
-    .tab { padding: 5px 8px; font-size: 11px; gap: 4px; flex: 0 0 auto; }
-    .tab .tab-check { width: 13px; height: 13px; }
-
-    /* Amber hamburger on mobile — visually distinct */
-    .actions-btn {
-      display: inline-flex;
-      order: 99;
-      margin-left: auto;
-      padding: 6px 14px;
-      font-size: 22px;
-      background: linear-gradient(to bottom, #f59e0b, #d97706);
-      border-color: #fbbf24;
-      color: #1e293b;
-      font-weight: 800;
-    }
-    .actions-btn:hover {
-      background: linear-gradient(to bottom, #fbbf24, #f59e0b);
-      color: #0f172a;
-    }
-
-    /* Controls become an inline panel that wraps below the tabs row */
-    .controls {
-      display: none;
-      order: 100;
-      flex: 0 0 100%;
-      width: 100%;
-      margin-top: 10px;
-      margin-left: 0;
-      padding: 12px;
-      flex-direction: column;
-      align-items: stretch;
-      background: linear-gradient(to bottom, rgba(30,41,59,0.98), rgba(15,23,42,0.98));
-      border: 1px solid rgba(71,85,105,0.6);
-      border-radius: 10px;
-      box-shadow: 0 6px 20px rgba(0,0,0,0.5);
-      gap: 8px;
-      position: static;
-    }
-    .controls.open { display: flex; }
-    .controls button,
-    .controls > label,
-    .controls .versions-wrap { width: 100%; }
-    .controls button,
-    .controls > label {
-      padding: 11px 12px;
-      font-size: 13px;
-      justify-content: flex-start;
-      text-align: left;
-    }
-    .versions-wrap #versions-btn { width: 100%; text-align: left; padding: 11px 12px; font-size: 13px; }
-    .versions-menu {
-      position: static;
-      margin-top: 6px;
-      min-width: 0;
-      max-width: 100%;
-      max-height: 45vh;
-    }
-    .current-version-label { max-width: 100%; }
-
-    /* Carousel — one game per view, swipe to switch */
-    .games-container {
-      display: flex;
-      overflow-x: auto;
-      overflow-y: visible;
-      scroll-snap-type: x mandatory;
-      scroll-behavior: smooth;
-      gap: 10px;
-      padding: 0 4px 10px;
-      -webkit-overflow-scrolling: touch;
-    }
-    .half {
-      flex: 0 0 92vw;
-      scroll-snap-align: center;
-      min-width: 280px;
-    }
-    .pos-box { width: 138px; }
-    .slot { min-height: 32px; font-size: 12px; padding: 5px 3px; }
-
-    .player-list { padding: 8px; gap: 5px; }
-    .player-pill { padding: 6px 10px; font-size: 12px; }
-    .player-pill .player-min { font-size: 11px; }
-    .player-pill .player-ratio { font-size: 9px; }
-
-    /* Totals table: fit viewport, no horizontal scroll */
-    .totals { padding: 8px; }
-    .totals table { font-size: 11px; }
-    .totals th, .totals td { padding: 4px 3px; font-size: 11px; }
-    .totals th:first-child, .totals td:first-child { width: 24%; }
-    .totals .gk-mark { font-size: 8px; padding: 1px 3px; margin-right: 2px; letter-spacing: 0.1px; }
-  }
-
-  @media (max-width: 480px) {
-    .half { flex: 0 0 94vw; }
-    .pos-box { width: 130px; }
-    .slot { font-size: 11px; padding: 4px 2px; }
-    .player-pill { padding: 5px 9px; font-size: 11px; }
-    .totals table { font-size: 10px; }
-    .totals th, .totals td { padding: 3px 2px; }
-  }
+  .pitch-card { max-width: 540px; margin-left: auto; margin-right: auto; margin-bottom: 12px; }
+}
 </style>
 </head>
 <body>
 
-<h1 class="app-title">Tournament planner<span id="save-status" class="save-status"></span></h1>
+<!-- ═══════════════════ App bar ═══════════════════ -->
+<header class="app-bar">
+  <div class="app-logo">M</div>
+  <div class="app-title">Tournament planner</div>
+  <button id="version-badge" class="version-badge" title="Go to Plans tab"></button>
+  <span id="save-status" class="save-status"></span>
+</header>
 
-<div class="tabs" id="tabs">
-  <button id="actions-btn" class="actions-btn" aria-label="Open actions menu">⋯</button>
-  <div class="controls" id="controls">
-    <label>
-      <input type="checkbox" id="show-benches-toggle" style="margin-right:4px;accent-color:#22c55e;"> Show benches
-    </label>
-    <label>
-      <input type="checkbox" id="show-players-toggle" style="margin-right:4px;accent-color:#22c55e;"> Show player list
-    </label>
-    <span id="current-version-label" class="current-version-label" title="Currently editing this named version"></span>
-    <div class="versions-wrap">
-      <button id="versions-btn" title="Save, load, and manage named versions">Versions ▾</button>
-      <div class="versions-menu" id="versions-menu"></div>
-    </div>
-    <button id="import-btn" title="Restore a previously exported .json snapshot">Import JSON</button>
-    <input type="file" id="import-file" accept="application/json" style="display:none">
-    <button id="export-btn" title="Download current state as a .json file (backup)">Export JSON</button>
-    <button id="reset-btn">Reset to plan</button>
-  </div>
+<!-- ═══════════════════ Main content ═══════════════════ -->
+<main class="content">
+
+  <!-- Games tab -->
+  <section id="tab-games" class="tab-panel active">
+    <div id="ribbon" class="ribbon"></div>
+    <div id="game-detail"></div>
+  </section>
+
+  <!-- Minutes tab -->
+  <section id="tab-minutes" class="tab-panel">
+    <h2 class="section-title">Player minutes <span class="count" id="minutes-count"></span></h2>
+    <div id="minutes-cards" class="cards-list"></div>
+  </section>
+
+  <!-- Plans tab -->
+  <section id="tab-plans" class="tab-panel">
+    <h2 class="section-title">Plans</h2>
+    <div id="plans-view"></div>
+  </section>
+
+</main>
+
+<!-- ═══════════════════ Bottom nav ═══════════════════ -->
+<nav class="bottom-nav">
+  <button class="nav-item active" data-tab="games">
+    <span class="nav-icon">⚽</span>
+    <span>Games</span>
+  </button>
+  <button class="nav-item" data-tab="minutes">
+    <span class="nav-icon">📊</span>
+    <span>Minutes</span>
+  </button>
+  <button class="nav-item" data-tab="plans">
+    <span class="nav-icon">📂</span>
+    <span>Plans</span>
+  </button>
+</nav>
+
+<!-- Bottom sheet -->
+<div id="sheet-backdrop" class="sheet-backdrop"></div>
+<div id="bottom-sheet" class="bottom-sheet">
+  <div class="sheet-handle"></div>
+  <h3 id="sheet-title" class="sheet-title"></h3>
+  <p id="sheet-sub" class="sheet-sub"></p>
+  <div id="sheet-actions" class="sheet-actions"></div>
 </div>
 
-<div id="game-view" class="game-view"></div>
-
-<div class="totals">
-  <h3>Minutes per player (all 5 games)</h3>
-  <table id="totals-table"></table>
-  <p style="font-size: 11px; color: #666; margin: 8px 0 0;">
-    Each half = 12:30. <span class="zero">Red</span> = 0 min that game.
-    <span class="below-half">Orange</span> = total &lt; 50 min.
-    <span class="priority">Green</span> = ≥ 60 min.
-    <span class="gk-mark">GK</span> = goalkeeper that game (full game);
-    <span class="gk-mark">GK·H1</span> / <span class="gk-mark">GK·H2</span> = goalkeeper one half only.
-    Above the games: <strong>player pills</strong> use a continuous red-yellow-green gradient based on % of fair share
-    (deep red &lt; 50%, yellow = on target, deep green &gt; 140%). Pills are sorted <em>ascending by minutes</em> so players needing more time appear first. The percentage next to each player is their current share vs. expected.
-    <strong>Click a pill</strong> to highlight every appearance of that player across all games. Click more pills to add to the selection; click a highlighted pill again to remove, or hit <em>Clear</em>.
-    <strong>Tap a chip, then tap another chip in the same game, to swap</strong> (mobile-friendly alternative to drag-drop). Tap the same chip twice to deselect.
-    A small <strong>⚙</strong> gear appears on the right of each position's label — click it to reveal merge/split buttons for that spot. Merged positions get <strong>Split</strong>; divided positions get <strong>Keep [starter]</strong> / <strong>Keep [sub]</strong>.
-    A player benched both halves of a game (not playing) is highlighted in red on both of their bench chips inside the affected game.
-    On the pitch, a chip gets a <strong>red border</strong> if its player is in a divided position here but is also on the field in the other half elsewhere (i.e. the "sub" is actually just a position switch, not a real substitution).
-    Use the <strong>Versions ▾</strong> button to save the current plan under a name and reload it later; each game's current state is always auto-saved separately from named versions.
-    Drag any chip to any slot within the same game to reorganize.
-  </p>
-</div>
+<input type="file" id="import-file" accept="application/json" style="display:none">
 
 <script>
 'use strict';
 
-const PLAYERS = [
-  'Verne', 'Petja', 'Jasper', 'Niilo H.', 'Jooa', 'Tiitus',
-  'Mikhail', 'Tomas', 'Alexandra', 'Onni', 'Roope'
-];
-const POSITIONS = ['GK', 'LB', 'RB', 'CDM', 'LM', 'RM', 'CAM', 'ST'];
-const BENCH_SIZE = 3;
-const PRIORITY = ['Onni', 'Jasper', 'Alexandra'];
-const HALF_MIN = 750; // 12:30 in seconds
+/* ══════════════════ Constants + seed ══════════════════ */
+const PLAYERS = ['Verne','Petja','Jasper','Niilo H.','Jooa','Tiitus','Mikhail','Tomas','Alexandra','Onni','Roope'];
+const POSITIONS = ['GK','LB','RB','CDM','LM','RM','CAM','ST'];
+const BENCH_KEYS = ['bench0','bench1','bench2'];
+const PRIORITY = new Set(['Onni','Jasper','Alexandra']);
+const HALF_MIN = 750; // seconds per half
 
-// Seed data from our plan
+const SCHEDULE = [
+  { time: '09:30', field: 'TN1', opp: 'FC Lahti' },
+  { time: '11:30', field: 'TN2', opp: 'Lautp' },
+  { time: '13:00', field: 'TN1', opp: 'FC Lahti 2' },
+  { time: 'TBD',   field: 'TBD', opp: 'Playoff' },
+  { time: 'TBD',   field: 'TBD', opp: 'Placement' },
+];
+
 const SEED = [
-  // Game 1
-  {
-    h1: { GK:'Verne', LB:'Niilo H.', RB:'Jooa', CDM:'Roope', LM:'Jasper', RM:'Onni', CAM:'Petja', ST:'Alexandra',
-          bench0:'Mikhail', bench1:'Tiitus', bench2:'Tomas' },
-    h2: { GK:'Verne', LB:'Niilo H.', RB:'Jooa', CDM:'Tomas', LM:'Jasper', RM:'Onni', CAM:'Tiitus', ST:'Mikhail',
-          bench0:'Roope', bench1:'Alexandra', bench2:'Petja' }
-  },
-  // Game 2
-  {
-    h1: { GK:'Petja', LB:'Tomas', RB:'Niilo H.', CDM:'Verne', LM:'Alexandra', RM:'Onni', CAM:'Tiitus', ST:'Mikhail',
-          bench0:'Roope', bench1:'Jooa', bench2:'Jasper' },
-    h2: { GK:'Petja', LB:'Tomas', RB:'Jooa', CDM:'Roope', LM:'Alexandra', RM:'Jasper', CAM:'Tiitus', ST:'Mikhail',
-          bench0:'Verne', bench1:'Niilo H.', bench2:'Onni' }
-  },
-  // Game 3
-  {
-    h1: { GK:'Verne', LB:'Tomas', RB:'Niilo H.', CDM:'Roope', LM:'Alexandra', RM:'Onni', CAM:'Jasper', ST:'Mikhail',
-          bench0:'Petja', bench1:'Jooa', bench2:'Tiitus' },
-    h2: { GK:'Verne', LB:'Petja', RB:'Jooa', CDM:'Roope', LM:'Alexandra', RM:'Onni', CAM:'Jasper', ST:'Tiitus',
-          bench0:'Tomas', bench1:'Niilo H.', bench2:'Mikhail' }
-  },
-  // Game 4 — not designed yet, copy G3 as starting point
-  {
-    h1: { GK:'Verne', LB:'Tomas', RB:'Niilo H.', CDM:'Roope', LM:'Alexandra', RM:'Onni', CAM:'Jasper', ST:'Mikhail',
-          bench0:'Petja', bench1:'Jooa', bench2:'Tiitus' },
-    h2: { GK:'Verne', LB:'Petja', RB:'Jooa', CDM:'Roope', LM:'Alexandra', RM:'Onni', CAM:'Jasper', ST:'Tiitus',
-          bench0:'Tomas', bench1:'Niilo H.', bench2:'Mikhail' }
-  },
-  // Game 5 — not designed yet; Jasper in goal per the goalie rotation
-  {
-    h1: { GK:'Jasper', LB:'Tomas', RB:'Niilo H.', CDM:'Roope', LM:'Alexandra', RM:'Onni', CAM:'Tiitus', ST:'Mikhail',
-          bench0:'Petja', bench1:'Verne', bench2:'Jooa' },
-    h2: { GK:'Jasper', LB:'Petja', RB:'Jooa', CDM:'Roope', LM:'Alexandra', RM:'Onni', CAM:'Tiitus', ST:'Mikhail',
-          bench0:'Tomas', bench1:'Verne', bench2:'Niilo H.' }
-  }
+  { h1:{GK:'Verne',LB:'Niilo H.',RB:'Jooa',CDM:'Roope',LM:'Mikhail',RM:'Onni',CAM:'Petja',ST:'Alexandra',bench0:'Jasper',bench1:'Tiitus',bench2:'Tomas'},
+    h2:{GK:'Verne',LB:'Niilo H.',RB:'Jooa',CDM:'Tomas',LM:'Jasper',RM:'Onni',CAM:'Tiitus',ST:'Mikhail',bench0:'Roope',bench1:'Alexandra',bench2:'Petja'} },
+  { h1:{GK:'Petja',LB:'Tomas',RB:'Niilo H.',CDM:'Verne',LM:'Alexandra',RM:'Onni',CAM:'Tiitus',ST:'Mikhail',bench0:'Roope',bench1:'Jooa',bench2:'Jasper'},
+    h2:{GK:'Petja',LB:'Tomas',RB:'Jooa',CDM:'Roope',LM:'Alexandra',RM:'Jasper',CAM:'Tiitus',ST:'Mikhail',bench0:'Verne',bench1:'Niilo H.',bench2:'Onni'} },
+  { h1:{GK:'Verne',LB:'Tomas',RB:'Niilo H.',CDM:'Roope',LM:'Alexandra',RM:'Onni',CAM:'Jasper',ST:'Mikhail',bench0:'Petja',bench1:'Jooa',bench2:'Tiitus'},
+    h2:{GK:'Verne',LB:'Petja',RB:'Jooa',CDM:'Roope',LM:'Alexandra',RM:'Onni',CAM:'Jasper',ST:'Tiitus',bench0:'Tomas',bench1:'Niilo H.',bench2:'Mikhail'} },
+  { h1:{GK:'Verne',LB:'Petja',RB:'Niilo H.',CDM:'Jooa',LM:'Roope',RM:'Onni',CAM:'Tiitus',ST:'Mikhail',bench0:'Tomas',bench1:'Jasper',bench2:'Alexandra'},
+    h2:{GK:'Verne',LB:'Tomas',RB:'Niilo H.',CDM:'Jooa',LM:'Alexandra',RM:'Onni',CAM:'Jasper',ST:'Mikhail',bench0:'Petja',bench1:'Roope',bench2:'Tiitus'} },
+  { h1:{GK:'Jasper',LB:'Petja',RB:'Niilo H.',CDM:'Roope',LM:'Alexandra',RM:'Onni',CAM:'Tiitus',ST:'Mikhail',bench0:'Verne',bench1:'Jooa',bench2:'Tomas'},
+    h2:{GK:'Jasper',LB:'Petja',RB:'Jooa',CDM:'Roope',LM:'Alexandra',RM:'Mikhail',CAM:'Tiitus',ST:'Tomas',bench0:'Verne',bench1:'Niilo H.',bench2:'Onni'} },
 ];
 
 const STORAGE_KEY = 'matchops-planner-state-v2';
-const LEGACY_KEY = 'matchops-planner-state-v1';
+const VERSIONS_KEY = 'matchops-planner-versions-v1';
 const DEFAULT_INCLUDED = [true, true, true, true, true];
 
+/* ══════════════════ State ══════════════════ */
 const loaded = loadAll();
 let state = loaded.games;
 let included = loaded.included;
-let showBenches = loaded.showBenches;
-let showPlayers = loaded.showPlayers;
 let currentVersionName = loaded.currentVersionName;
-let selectedGame = 0;
-const highlightedPlayers = new Set();  // click-to-track state (multi-select, on pills)
-let tapSelected = null; // tap-to-swap state: { game, half, key }
-function toggleHighlight(player) {
-  if (!player) return;
-  if (highlightedPlayers.has(player)) highlightedPlayers.delete(player);
-  else highlightedPlayers.add(player);
-}
-function isHighlighted(player) {
-  return player && highlightedPlayers.has(player);
-}
-function anyHighlightActive() {
-  return highlightedPlayers.size > 0;
-}
+let benchOpenFor = null;     // which game index has bench expanded (null = collapsed)
+let activeGame = 0;          // which game the ribbon is focused on
+let activeTab = 'games';     // 'games' | 'minutes' | 'plans'
+const highlightedPlayers = new Set();
+let tapSelected = null;      // { game, half, key }
 
-// Heat map thresholds (ratio of player's total to expected)
-const HEAT_UNDER = 0.70;   // < 70% of expected → red ring
-const HEAT_OVER  = 1.10;   // > 110% of expected → green ring
+// Undo/redo history
+const history = [];
+let historyIndex = -1;
+const HISTORY_MAX = 40;
 
-function playerTotalSecInIncluded(player) {
-  return [0,1,2,3,4].reduce((sum, i) =>
-    sum + (included[i] ? playerMinsPerGame(player, i) : 0), 0);
+function snapshotStateForHistory() {
+  return { games: JSON.parse(JSON.stringify(state)), included: included.slice() };
 }
-function heatStatus(player) {
-  if (!player) return 'ok';
-  const activeCount = included.filter(x => x).length;
-  if (activeCount === 0) return 'ok';
-  const totalSec = playerTotalSecInIncluded(player);
-  const expectedSec = 12000 * activeCount / 11; // 200 min/game × 60 × active / 11 players
-  const ratio = totalSec / expectedSec;
-  if (ratio < HEAT_UNDER) return 'under';
-  if (ratio > HEAT_OVER) return 'over';
-  return 'ok';
+function pushHistory() {
+  history.splice(historyIndex + 1);
+  history.push(snapshotStateForHistory());
+  if (history.length > HISTORY_MAX) history.shift();
+  historyIndex = history.length - 1;
+  renderActiveTab();
 }
+function applyHistorySnapshot(snap) {
+  state = JSON.parse(JSON.stringify(snap.games));
+  included = snap.included.slice();
+  saveAll();
+  renderActiveTab();
+}
+function undo() { if (historyIndex > 0) { historyIndex--; applyHistorySnapshot(history[historyIndex]); } }
+function redo() { if (historyIndex < history.length - 1) { historyIndex++; applyHistorySnapshot(history[historyIndex]); } }
+pushHistory(); // initial state
 
+/* ══════════════════ Persistence ══════════════════ */
 function loadAll() {
   try {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      if (parsed && Array.isArray(parsed.games) && Array.isArray(parsed.included)) {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const p = JSON.parse(raw);
+      if (p && Array.isArray(p.games) && p.games.length === 5) {
         return {
-          games: parsed.games,
-          included: parsed.included.slice(0, 5).concat(DEFAULT_INCLUDED.slice(parsed.included.length)),
-          showBenches: parsed.showBenches !== undefined ? parsed.showBenches : true,
-          showPlayers: parsed.showPlayers !== undefined ? parsed.showPlayers : true,
-          currentVersionName: parsed.currentVersionName || null,
+          games: p.games,
+          included: Array.isArray(p.included) ? p.included.slice(0,5).concat(DEFAULT_INCLUDED.slice(p.included.length)) : DEFAULT_INCLUDED.slice(),
+          currentVersionName: p.currentVersionName || null,
         };
       }
     }
-    // migrate from v1 (games array only)
-    const legacy = localStorage.getItem(LEGACY_KEY);
-    if (legacy) {
-      const games = JSON.parse(legacy);
-      if (Array.isArray(games)) {
-        return { games, included: DEFAULT_INCLUDED.slice(), showBenches: true, showPlayers: true, currentVersionName: null };
-      }
-    }
-  } catch (e) { /* ignore */ }
-  return {
-    games: JSON.parse(JSON.stringify(SEED)),
-    included: DEFAULT_INCLUDED.slice(),
-    showBenches: true,
-    showPlayers: true,
-    currentVersionName: null,
-  };
+  } catch (e) {}
+  return { games: JSON.parse(JSON.stringify(SEED)), included: DEFAULT_INCLUDED.slice(), currentVersionName: null };
 }
 function saveAll() {
-  const snapshot = { games: state, included, showBenches, showPlayers, currentVersionName, savedAt: new Date().toISOString() };
+  const snapshot = { games: state, included, currentVersionName, savedAt: new Date().toISOString() };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
-  showSaved();
-  updateCurrentVersionLabel();
-}
-function updateCurrentVersionLabel() {
-  const el = document.getElementById('current-version-label');
-  if (!el) return;
-  if (currentVersionName) {
-    el.textContent = `📂 ${currentVersionName}`;
-    el.classList.add('has-version');
-  } else {
-    el.textContent = '';
-    el.classList.remove('has-version');
-  }
+  showSaved(); updateVersionBadge();
 }
 let saveStatusTimer = null;
 function showSaved() {
   const el = document.getElementById('save-status');
   if (!el) return;
   const now = new Date();
-  const hh = now.getHours().toString().padStart(2, '0');
-  const mm = now.getMinutes().toString().padStart(2, '0');
-  const ss = now.getSeconds().toString().padStart(2, '0');
-  el.textContent = `✓ Saved ${hh}:${mm}:${ss}`;
-  if (saveStatusTimer) clearTimeout(saveStatusTimer);
-  saveStatusTimer = setTimeout(() => { el.textContent = ''; }, 3000);
+  el.textContent = '✓ ' + now.toTimeString().slice(0,5);
+  el.style.opacity = '1';
+  clearTimeout(saveStatusTimer);
+  saveStatusTimer = setTimeout(() => { el.style.opacity = '0'; }, 2400);
 }
 
-function slotKey(pos, benchIdx) {
-  return benchIdx != null ? `bench${benchIdx}` : pos;
+/* ══════════════════ Versions ══════════════════ */
+function loadVersions() {
+  try { const raw = localStorage.getItem(VERSIONS_KEY); if (raw) return JSON.parse(raw) || {}; } catch (e) {}
+  return {};
+}
+function saveVersionsMap(m) { localStorage.setItem(VERSIONS_KEY, JSON.stringify(m)); }
+function snapshotForVersion() {
+  return { games: JSON.parse(JSON.stringify(state)), included: included.slice(), savedAt: new Date().toISOString() };
+}
+function saveVersion(name, silent) {
+  const m = loadVersions();
+  if (!silent && m[name] && !confirm('"' + name + '" already exists. Overwrite?')) return false;
+  m[name] = snapshotForVersion();
+  saveVersionsMap(m);
+  return true;
+}
+function deleteVersion(name) {
+  if (!confirm('Delete "' + name + '"?')) return;
+  const m = loadVersions(); delete m[name]; saveVersionsMap(m);
+  if (currentVersionName === name) { currentVersionName = null; saveAll(); }
+  if (activeTab === 'plans') renderPlans();
+}
+function renameVersion(oldName) {
+  const m = loadVersions(); if (!m[oldName]) return;
+  const input = prompt('Rename "' + oldName + '" to:', oldName);
+  if (input === null) return;
+  const n = input.trim(); if (!n || n === oldName) return;
+  if (m[n] && !confirm('"' + n + '" exists. Overwrite?')) return;
+  m[n] = m[oldName]; delete m[oldName]; saveVersionsMap(m);
+  if (currentVersionName === oldName) { currentVersionName = n; saveAll(); }
+  if (activeTab === 'plans') renderPlans();
+}
+function applyVersion(name) {
+  const m = loadVersions(); const v = m[name]; if (!v) return;
+  if (!confirm('Load "' + name + '"? Your current state will be replaced.')) return;
+  state = JSON.parse(JSON.stringify(v.games));
+  included = (v.included || DEFAULT_INCLUDED).slice(0,5);
+  while (included.length < 5) included.push(true);
+  currentVersionName = name;
+  highlightedPlayers.clear();
+  saveAll(); pushHistory(); renderActiveTab();
 }
 
-function chipMarkup(gameIdx, half, key, player, extraClass) {
-  const highlight = isHighlighted(player) ? 'highlighted' : '';
-  const dimmed = anyHighlightActive() && player && !isHighlighted(player) ? 'any-highlighted' : '';
-  const tapSel = tapSelected && tapSelected.game === gameIdx && tapSelected.half === half && tapSelected.key === key ? 'tap-selected' : '';
-  const cls = ['slot', highlight, dimmed, tapSel, extraClass || ''].filter(Boolean).join(' ');
-  return `<div class="${cls}" data-game="${gameIdx}" data-half="${half}" data-key="${key}" draggable="true">${player}</div>`;
-}
-
-function benchedBothHalves(gameIdx) {
-  const g = state[gameIdx];
-  const benchH1 = new Set([g.h1.bench0, g.h1.bench1, g.h1.bench2].filter(Boolean));
-  const benchH2 = new Set([g.h2.bench0, g.h2.bench1, g.h2.bench2].filter(Boolean));
-  const onFieldH1 = new Set(POSITIONS.map(p => g.h1[p]).filter(Boolean));
-  const onFieldH2 = new Set(POSITIONS.map(p => g.h2[p]).filter(Boolean));
-  // Only flag as "sits out" if the player is truly not on the field in either half.
-  // (Guards against duplicate/inconsistent state where a player is both on bench and on field.)
-  return [...benchH1]
-    .filter(p => benchH2.has(p))
-    .filter(p => !onFieldH1.has(p) && !onFieldH2.has(p));
-}
-
-function renderGameCard(gameIdx) {
-  const g = state[gameIdx];
-  const benchedBoth = new Set(benchedBothHalves(gameIdx));
-  // Pre-compute "on-field" sets so we can flag divided chips where the player is actually on the field in the other half too
-  const onFieldH1 = new Set(POSITIONS.map(p => g.h1[p]).filter(Boolean));
-  const onFieldH2 = new Set(POSITIONS.map(p => g.h2[p]).filter(Boolean));
-  const card = document.createElement('div');
-  card.className = 'half' + (gameIdx === selectedGame ? ' focused' : '');
-  card.dataset.game = gameIdx;
-  card.innerHTML = `
-    <h3>Game ${gameIdx + 1}</h3>
-    <div class="pitch">
-      ${POSITIONS.map(p => {
-        const h1 = g.h1[p] || '';
-        const h2 = g.h2[p] || '';
-        const full = h1 !== '' && h1 === h2;
-        let actionsHTML = '';
-        if (full) {
-          actionsHTML = `<button class="pos-action" data-action="split" data-game="${gameIdx}" data-pos="${p}" title="Split into starter + sub">✂ Split</button>`;
-        } else if (h1 && h2) {
-          actionsHTML = `
-            <button class="pos-action" data-action="merge-h1" data-game="${gameIdx}" data-pos="${p}" title="Make ${h1} full-game">Keep ${h1}</button>
-            <button class="pos-action" data-action="merge-h2" data-game="${gameIdx}" data-pos="${p}" title="Make ${h2} full-game">Keep ${h2}</button>
-          `;
-        }
-        const hasActions = actionsHTML !== '';
-        // Flag if the H1 player is also on the field in H2 (or vice versa) while this position is divided
-        const h1PlaysBoth = !full && h1 && onFieldH2.has(h1) ? 'plays-both' : '';
-        const h2PlaysBoth = !full && h2 && onFieldH1.has(h2) ? 'plays-both' : '';
-        return `
-          <div class="pos-box pos-${p.toLowerCase()}">
-            <div class="pos-label">
-              <span class="pos-spacer"></span>
-              <span class="pos-name">${p}</span>
-              ${hasActions
-                ? `<button class="pos-wrench" data-game="${gameIdx}" data-pos="${p}" title="Edit this position">⚙</button>`
-                : `<span class="pos-spacer"></span>`}
-            </div>
-            <div class="chip-row ${full ? 'full-game' : ''}">
-              ${chipMarkup(gameIdx, 'h1', p, h1, h1PlaysBoth)}
-              ${chipMarkup(gameIdx, 'h2', p, h2, h2PlaysBoth)}
-            </div>
-            ${hasActions ? `<div class="pos-actions">${actionsHTML}</div>` : ''}
-          </div>
-        `;
-      }).join('')}
-    </div>
-    ${showBenches ? `
-    <div class="bench-section">
-      <div class="bench-row">
-        <div class="bench-label">Bench H1</div>
-        <div class="chip-row">
-          ${[0,1,2].map(i => {
-            const player = g.h1[`bench${i}`] || '';
-            return chipMarkup(gameIdx, 'h1', `bench${i}`, player, benchedBoth.has(player) ? 'benched-both' : '');
-          }).join('')}
-        </div>
-      </div>
-      <div class="bench-row">
-        <div class="bench-label">Bench H2</div>
-        <div class="chip-row">
-          ${[0,1,2].map(i => {
-            const player = g.h2[`bench${i}`] || '';
-            return chipMarkup(gameIdx, 'h2', `bench${i}`, player, benchedBoth.has(player) ? 'benched-both' : '');
-          }).join('')}
-        </div>
-      </div>
-    </div>` : ''}
-  `;
-  return card;
-}
-
-function playerRatio(player) {
-  const activeCount = included.filter(x => x).length;
-  if (activeCount === 0) return null; // no reference, neutral
-  const totalSec = playerTotalSecInIncluded(player);
-  const expected = 12000 * activeCount / 11; // fair-share seconds
-  if (expected <= 0) return null;
-  return totalSec / expected;
-}
-
-function hueForRatio(ratio) {
-  // Map ratio (clamped 0.4 → 1.5) to hue 0 (red) → 150 (green).
-  // 1.0 ratio ≈ hue 100 (yellow-green "on target").
-  const r = Math.max(0.4, Math.min(1.5, ratio));
-  return Math.round((r - 0.4) / 1.1 * 150);
-}
-
-function renderPlayerList() {
-  const list = document.createElement('div');
-  list.className = 'player-list';
-
-  // Sort ascending by minutes so the "needs attention" players come first
-  const sorted = [...PLAYERS].sort((a, b) => {
-    const diff = playerTotalSecInIncluded(a) - playerTotalSecInIncluded(b);
-    if (diff !== 0) return diff;
-    return a.localeCompare(b);
-  });
-
-  for (const p of sorted) {
-    const total = playerTotalSecInIncluded(p);
-    const ratio = playerRatio(p);
-    const pill = document.createElement('div');
-    pill.className = 'player-pill' + (isHighlighted(p) ? ' highlighted' : '');
-    pill.dataset.player = p;
-
-    if (ratio !== null) {
-      const hue = hueForRatio(ratio);
-      pill.style.setProperty('--pill-bg', `hsl(${hue}, 78%, 92%)`);
-      pill.style.setProperty('--pill-border', `hsl(${hue}, 55%, 42%)`);
-      pill.style.setProperty('--pill-color', `hsl(${hue}, 60%, 22%)`);
-    }
-
-    const pct = ratio !== null ? Math.round(ratio * 100) + '%' : '';
-    pill.innerHTML = `
-      <span class="player-name">${p}</span>
-      <span class="player-min">${formatMin(total)}</span>
-      ${pct ? `<span class="player-ratio">${pct}</span>` : ''}
-    `;
-    pill.addEventListener('click', () => {
-      toggleHighlight(p);
-      renderGame();
-    });
-    list.appendChild(pill);
-  }
-
-  if (anyHighlightActive()) {
-    const clearBtn = document.createElement('button');
-    clearBtn.className = 'player-pill clear-btn';
-    clearBtn.style.cssText = 'background:#fff;border-color:#aaa;color:#666;font-size:11px;cursor:pointer;';
-    clearBtn.textContent = `Clear (${highlightedPlayers.size})`;
-    clearBtn.addEventListener('click', () => {
-      highlightedPlayers.clear();
-      renderGame();
-    });
-    list.appendChild(clearBtn);
-  }
-  return list;
-}
-
-function renderGame() {
-  const view = document.getElementById('game-view');
-  view.innerHTML = '';
-
-  // Player status list (color-coded by tournament total) — hideable via Show player list toggle
-  if (showPlayers) view.appendChild(renderPlayerList());
-
-  const includedIndices = [0,1,2,3,4].filter(i => included[i]);
-
-  if (includedIndices.length === 0) {
-    const note = document.createElement('div');
-    note.className = 'games-empty';
-    note.textContent = 'No games included. Tick a Game ✓ above to show it here and count it in totals.';
-    view.appendChild(note);
-    attachDragHandlers();
-    return;
-  }
-
-  const container = document.createElement('div');
-  container.className = 'games-container';
-  for (const i of includedIndices) {
-    container.appendChild(renderGameCard(i));
-  }
-  view.appendChild(container);
-  attachDragHandlers();
-}
-
-function attachDragHandlers() {
-  document.querySelectorAll('.slot').forEach(slot => {
-    slot.addEventListener('dragstart', onDragStart);
-    slot.addEventListener('dragover', onDragOver);
-    slot.addEventListener('dragleave', onDragLeave);
-    slot.addEventListener('drop', onDrop);
-    slot.addEventListener('dragend', onDragEnd);
-    slot.addEventListener('click', onChipClick);
-  });
-  document.querySelectorAll('.pos-action').forEach(btn => {
-    btn.addEventListener('click', onPosAction);
-  });
-  document.querySelectorAll('.pos-wrench').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      btn.closest('.pos-box').classList.toggle('edit-mode');
-    });
-  });
-}
-
-function findKeyInHalf(g, half, player, excludePos) {
-  // Find which slot in the given half currently contains this player.
-  for (const p of POSITIONS) {
-    if (p !== excludePos && g[half][p] === player) return p;
-  }
-  for (let i = 0; i < 3; i++) {
-    if (g[half][`bench${i}`] === player) return `bench${i}`;
-  }
+/* ══════════════════ Helpers ══════════════════ */
+function findKeyInHalf(g, half, player, excludeKey) {
+  for (const p of POSITIONS) if (p !== excludeKey && g[half][p] === player) return p;
+  for (const b of BENCH_KEYS) if (b !== excludeKey && g[half][b] === player) return b;
   return null;
 }
-
-function onPosAction(e) {
-  e.stopPropagation();
-  const btn = e.currentTarget;
-  const action = btn.dataset.action;
-  const gIdx = parseInt(btn.dataset.game, 10);
-  const pos = btn.dataset.pos;
-  const g = state[gIdx];
-
-  if (action === 'merge-h1') {
-    // Promote H1 player (starter) to full-game → make H2 at this pos also be H1's player.
-    const keeper = g.h1[pos];
-    if (!keeper || g.h2[pos] === keeper) return;
-    const displaced = g.h2[pos];
-    const target = findKeyInHalf(g, 'h2', keeper, pos);
-    if (target) {
-      const tmp = g.h2[pos];
-      g.h2[pos] = g.h2[target];
-      g.h2[target] = tmp;
-    } else {
-      // Fallback: keeper not found in H2 (inconsistent state). Force the merge and push the
-      // displaced H2 player onto the H2 bench.
-      g.h2[pos] = keeper;
-      g.h2.bench0 = displaced;
-    }
-  } else if (action === 'merge-h2') {
-    // Promote H2 player (sub) to full-game → make H1 at this pos also be H2's player.
-    const keeper = g.h2[pos];
-    if (!keeper || g.h1[pos] === keeper) return;
-    const displaced = g.h1[pos];
-    const target = findKeyInHalf(g, 'h1', keeper, pos);
-    if (target) {
-      const tmp = g.h1[pos];
-      g.h1[pos] = g.h1[target];
-      g.h1[target] = tmp;
-    } else {
-      // Fallback: keeper not found in H1 (inconsistent state). Force the merge and push the
-      // displaced H1 player onto the H1 bench.
-      g.h1[pos] = keeper;
-      g.h1.bench0 = displaced;
-    }
-  } else if (action === 'split') {
-    // Currently merged: H1 == H2 == starter. Break by swapping H2 with bench H2 slot 0.
-    const tmp = g.h2[pos];
-    g.h2[pos] = g.h2.bench0;
-    g.h2.bench0 = tmp;
-  }
-
-  saveAll();
-  renderGame();
-  renderTotals();
+function playerMinsPerGame(player, gameIdx) {
+  const g = state[gameIdx]; let secs = 0;
+  for (const half of ['h1','h2']) for (const pos of POSITIONS) if (g[half][pos] === player) { secs += HALF_MIN; break; }
+  return secs;
+}
+function playerGKInGame(player, gameIdx) {
+  const g = state[gameIdx];
+  const h1 = g.h1.GK === player, h2 = g.h2.GK === player;
+  if (h1 && h2) return 'full'; if (h1) return 'h1'; if (h2) return 'h2'; return null;
+}
+function playerTotalSec(player) {
+  return [0,1,2,3,4].reduce((s,i) => s + (included[i] ? playerMinsPerGame(player,i) : 0), 0);
+}
+function playerTotalSecAll(player) {
+  return [0,1,2,3,4].reduce((s,i) => s + playerMinsPerGame(player,i), 0);
+}
+function playerRatio(player) {
+  const active = included.filter(Boolean).length;
+  if (!active) return null;
+  const expected = 12000 * active / 11;
+  return playerTotalSec(player) / expected;
+}
+function hueForRatio(r) {
+  const c = Math.max(0.4, Math.min(1.5, r));
+  return Math.round((c - 0.4) / 1.1 * 150);
+}
+function formatMin(sec) { const m = Math.floor(sec/60), s = sec%60; return m + ':' + s.toString().padStart(2,'0'); }
+function benchedBothHalves(gi) {
+  const g = state[gi];
+  const b1 = new Set(BENCH_KEYS.map(k => g.h1[k]).filter(Boolean));
+  const b2 = new Set(BENCH_KEYS.map(k => g.h2[k]).filter(Boolean));
+  const f1 = new Set(POSITIONS.map(p => g.h1[p]).filter(Boolean));
+  const f2 = new Set(POSITIONS.map(p => g.h2[p]).filter(Boolean));
+  return [...b1].filter(p => b2.has(p) && !f1.has(p) && !f2.has(p));
+}
+function playerInitials(name) {
+  return name.split(/[\s.]+/).filter(Boolean).map(s => s[0]).slice(0,2).join('').toUpperCase();
+}
+function anyHighlightActive() { return highlightedPlayers.size > 0; }
+function isHighlighted(p) { return p && highlightedPlayers.has(p); }
+function toggleHighlight(p) {
+  if (!p) return;
+  if (highlightedPlayers.has(p)) highlightedPlayers.delete(p);
+  else highlightedPlayers.add(p);
 }
 
-function onChipClick(e) {
-  // Tap-to-swap flow (touch-friendly equivalent of drag-drop):
-  //   1st tap on a chip: select it (orange glow)
-  //   2nd tap on another chip in same game: swap them
-  //   2nd tap on same chip: deselect
-  //   2nd tap in a different game: move selection to the new chip
-  const slot = e.currentTarget;
-  const gIdx = parseInt(slot.dataset.game, 10);
-  const half = slot.dataset.half;
-  const key = slot.dataset.key;
-  const player = state[gIdx][half][key];
-  if (!player) return;
-
-  if (!tapSelected) {
-    tapSelected = { game: gIdx, half, key };
-    renderGame();
-    return;
-  }
-
-  // Second tap on the same chip → clear
-  if (tapSelected.game === gIdx && tapSelected.half === half && tapSelected.key === key) {
-    tapSelected = null;
-    renderGame();
-    return;
-  }
-
-  // Second tap in a different game → move selection
-  if (tapSelected.game !== gIdx) {
-    tapSelected = { game: gIdx, half, key };
-    renderGame();
-    return;
-  }
-
-  // Second tap in same game on a different chip → swap
-  const src = tapSelected;
-  tapSelected = null;
-  performSwap(gIdx, src.half, src.key, half, key);
-}
-
-let dragSource = null;
-
-function onDragStart(e) {
-  const slot = e.currentTarget;
-  dragSource = { game: slot.dataset.game, half: slot.dataset.half, key: slot.dataset.key };
-  e.dataTransfer.effectAllowed = 'move';
-  e.dataTransfer.setData('text/plain', JSON.stringify(dragSource));
-  slot.style.opacity = '0.4';
-}
-
-function onDragOver(e) {
-  if (!dragSource) return;
-  const slot = e.currentTarget;
-  // Restrict to same game only. Cross-half drops are allowed and handled
-  // specially in onDrop so the "one slot per player per half" invariant stays intact.
-  if (slot.dataset.game !== dragSource.game) return;
-  e.preventDefault();
-  e.dataTransfer.dropEffect = 'move';
-  slot.classList.add('drag-over');
-}
-
-function onDragLeave(e) {
-  e.currentTarget.classList.remove('drag-over');
-}
-
+/* ══════════════════ Swap engine (shared by drag, tap, and bottom sheet) ══════════════════ */
 function performSwap(gIdx, srcHalf, srcKey, tgtHalf, tgtKey) {
-  // Shared swap engine used by BOTH drag-drop and tap-to-swap
   const g = state[gIdx];
   const srcPlayer = g[srcHalf][srcKey];
   const tgtPlayer = g[tgtHalf][tgtKey];
   if (!srcPlayer) return;
   if (srcHalf === tgtHalf && srcKey === tgtKey) return;
 
-  // Same position, different halves → flip the two players globally in this game
+  // Same position flip (both halves of same pos, two different players)
   if (srcKey === tgtKey && srcHalf !== tgtHalf && POSITIONS.includes(srcKey) && srcPlayer && tgtPlayer && srcPlayer !== tgtPlayer) {
     const pA = srcPlayer, pB = tgtPlayer;
-    const keys = POSITIONS.concat(['bench0','bench1','bench2']);
-    for (const half of ['h1','h2']) {
-      for (const k of keys) {
-        if (g[half][k] === pA) g[half][k] = pB;
-        else if (g[half][k] === pB) g[half][k] = pA;
-      }
+    for (const half of ['h1','h2']) for (const k of POSITIONS.concat(BENCH_KEYS)) {
+      if (g[half][k] === pA) g[half][k] = pB; else if (g[half][k] === pB) g[half][k] = pA;
     }
   } else if (srcHalf === tgtHalf) {
-    // Same-half swap, with merged-target preservation
-    const isTargetFieldPos = POSITIONS.includes(tgtKey);
-    const targetWasMerged = isTargetFieldPos && g.h1[tgtKey] === g.h2[tgtKey] && g.h1[tgtKey] !== '';
-    g[tgtHalf][tgtKey] = srcPlayer;
-    g[srcHalf][srcKey] = tgtPlayer;
+    const isFieldPos = POSITIONS.includes(tgtKey);
+    const targetWasMerged = isFieldPos && g.h1[tgtKey] === g.h2[tgtKey] && g.h1[tgtKey] !== '';
+    g[tgtHalf][tgtKey] = srcPlayer; g[srcHalf][srcKey] = tgtPlayer;
     if (targetWasMerged && srcPlayer !== tgtPlayer) {
-      const otherHalf = tgtHalf === 'h1' ? 'h2' : 'h1';
-      const srcOtherKey = findKeyInHalf(g, otherHalf, srcPlayer, tgtKey);
-      if (srcOtherKey) {
-        const tmp = g[otherHalf][tgtKey];
-        g[otherHalf][tgtKey] = srcPlayer;
-        g[otherHalf][srcOtherKey] = tmp;
+      const oh = tgtHalf === 'h1' ? 'h2' : 'h1';
+      const srcOther = findKeyInHalf(g, oh, srcPlayer, tgtKey);
+      if (srcOther) {
+        const tmp = g[oh][tgtKey]; g[oh][tgtKey] = srcPlayer; g[oh][srcOther] = tmp;
       }
     }
   } else {
-    // Cross-half: put source player at target slot (target half only)
-    const srcInTargetHalf = findKeyInHalf(g, tgtHalf, srcPlayer, null);
-    if (srcInTargetHalf) {
-      const tmp = g[tgtHalf][tgtKey];
-      g[tgtHalf][tgtKey] = srcPlayer;
-      g[tgtHalf][srcInTargetHalf] = tmp;
+    // cross-half
+    const srcInTgt = findKeyInHalf(g, tgtHalf, srcPlayer, null);
+    if (srcInTgt) {
+      const tmp = g[tgtHalf][tgtKey]; g[tgtHalf][tgtKey] = srcPlayer; g[tgtHalf][srcInTgt] = tmp;
     } else {
-      g[tgtHalf][tgtKey] = srcPlayer;
-      g[tgtHalf].bench0 = tgtPlayer;
+      g[tgtHalf][tgtKey] = srcPlayer; g[tgtHalf].bench0 = tgtPlayer;
     }
   }
-
-  saveAll();
-  renderGame();
-  renderTotals();
+  saveAll(); pushHistory(); renderActiveTab();
 }
 
-function onDrop(e) {
-  e.preventDefault();
-  const target = e.currentTarget;
-  target.classList.remove('drag-over');
-  if (!dragSource) return;
-  if (target.dataset.game !== dragSource.game) return;
-  if (target.dataset.half === dragSource.half && target.dataset.key === dragSource.key) return;
-  performSwap(parseInt(dragSource.game, 10), dragSource.half, dragSource.key, target.dataset.half, target.dataset.key);
+/* ══════════════════ Rendering ══════════════════ */
+function renderActiveTab() {
+  if (activeTab === 'games') renderGamesTab();
+  else if (activeTab === 'minutes') renderMinutesTab();
+  else if (activeTab === 'plans') renderPlans();
+  updateVersionBadge();
 }
 
-function onDragEnd(e) {
-  e.currentTarget.style.opacity = '';
-  document.querySelectorAll('.slot.drag-over').forEach(s => s.classList.remove('drag-over'));
-  dragSource = null;
-}
-
-function formatMin(sec) {
-  const m = Math.floor(sec / 60);
-  const s = sec % 60;
-  return `${m}:${s.toString().padStart(2,'0')}`;
-}
-
-function playerMinsPerGame(player, gameIdx) {
-  const g = state[gameIdx];
-  let secs = 0;
-  for (const half of ['h1','h2']) {
-    // on field if in any position (not bench0/1/2)
-    for (const pos of POSITIONS) {
-      if (g[half][pos] === player) { secs += HALF_MIN; break; }
-    }
+/* ─── Version badge ─── */
+function updateVersionBadge() {
+  const b = document.getElementById('version-badge');
+  if (!b) return;
+  if (currentVersionName) {
+    b.textContent = '📂 ' + currentVersionName;
+    b.classList.add('has-version');
+  } else {
+    b.textContent = '';
+    b.classList.remove('has-version');
   }
-  return secs;
 }
 
-function playerGKInGame(player, gameIdx) {
-  const g = state[gameIdx];
-  const h1 = g.h1.GK === player;
-  const h2 = g.h2.GK === player;
-  if (h1 && h2) return 'full';
-  if (h1) return 'h1';
-  if (h2) return 'h2';
-  return null;
+/* ─── Games tab ─── */
+function renderGamesTab() {
+  renderRibbon();
+  renderGameDetail();
 }
-
-function renderTabs() {
-  const container = document.getElementById('tabs');
-  // Preserve the actions button AND the controls panel (both live inside .tabs)
-  const actionsBtn = container.querySelector('#actions-btn');
-  const controls = container.querySelector('.controls');
+function renderRibbon() {
+  const container = document.getElementById('ribbon');
   container.innerHTML = '';
-  if (actionsBtn) container.appendChild(actionsBtn);
-  for (let i = 0; i < 5; i++) {
-    const tab = document.createElement('div');
-    tab.className = 'tab' + (i === selectedGame ? ' selected' : '') + (included[i] ? ' included' : '');
-    tab.dataset.game = i;
-    tab.innerHTML = `
-      <input type="checkbox" class="tab-check" ${included[i] ? 'checked' : ''} title="Include Game ${i+1} in totals">
-      <span>Game ${i+1}</span>
-    `;
-    tab.addEventListener('click', (e) => {
-      if (e.target.classList.contains('tab-check')) return;
-      selectedGame = i;
-      renderTabs();
-      renderGame();
-    });
-    tab.querySelector('.tab-check').addEventListener('click', (e) => {
-      e.stopPropagation();
-    });
-    tab.querySelector('.tab-check').addEventListener('change', (e) => {
-      included[i] = e.target.checked;
-      saveAll();
-      renderTabs();
-      renderGame();
-      renderTotals();
-    });
-    container.appendChild(tab);
-  }
-  if (controls) container.appendChild(controls);
+  SCHEDULE.forEach((sched, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'ribbon-game' + (i === activeGame ? ' active' : '') + (included[i] ? '' : ' excluded');
+    btn.dataset.game = i;
+    btn.innerHTML =
+      '<span class="ribbon-label">Game ' + (i+1) + '</span>' +
+      '<span class="ribbon-opp">' + sched.opp + '</span>' +
+      '<span class="ribbon-time">' + sched.time + (sched.field && sched.field !== 'TBD' ? ' · ' + sched.field : '') + '</span>';
+    btn.addEventListener('click', () => { activeGame = i; renderGamesTab(); });
+    container.appendChild(btn);
+  });
+  // scroll active into view
+  const activeEl = container.querySelector('.ribbon-game.active');
+  if (activeEl && activeEl.scrollIntoView) activeEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
 }
 
-function renderTotals() {
-  const table = document.getElementById('totals-table');
-  let html = `
-    <thead>
-      <tr>
-        <th>Player</th>
-        ${[0,1,2,3,4].map(i => `<th class="min-cell ${included[i] ? '' : 'inactive'}">G${i+1}</th>`).join('')}
-        <th class="min-cell total-col">Total</th>
-      </tr>
-    </thead><tbody>
-  `;
-  for (const p of PLAYERS) {
-    const perGame = [0,1,2,3,4].map(i => playerMinsPerGame(p, i));
-    const total = perGame.reduce((sum, v, i) => sum + (included[i] ? v : 0), 0);
-    const totalClass = total >= 60*60 ? 'priority' : (total < 50*60 ? 'below-half' : '');
-    html += `<tr><td>${p}</td>`;
-    perGame.forEach((secs, i) => {
-      const classes = [];
-      if (!included[i]) classes.push('inactive');
-      else if (secs === 0) classes.push('zero');
+function chipHtml(gameIdx, half, key, player, extraClass) {
+  const hl = isHighlighted(player) ? 'highlighted' : '';
+  const dim = anyHighlightActive() && player && !isHighlighted(player) ? 'any-highlighted' : '';
+  const tap = tapSelected && tapSelected.game === gameIdx && tapSelected.half === half && tapSelected.key === key ? 'tap-selected' : '';
+  const cls = ['slot', hl, dim, tap, extraClass || ''].filter(Boolean).join(' ');
+  // per-chip minute bar
+  let barHtml = '';
+  if (player) {
+    const r = playerRatio(player);
+    const hue = r !== null ? hueForRatio(r) : 60;
+    const pct = r !== null ? Math.min(100, Math.max(0, r * 80)) : 0; // display up to 100% when r=1.25
+    barHtml = '<div class="chip-min-bar"><div class="chip-min-fill" style="--chip-hue:' + hue + ';--chip-ratio:' + pct + '%"></div></div>';
+  }
+  return '<div class="' + cls + '" data-game="' + gameIdx + '" data-half="' + half + '" data-key="' + key + '" draggable="true">' +
+    '<span>' + (player || '') + '</span>' + barHtml + '</div>';
+}
+
+function renderGameDetail() {
+  const gIdx = activeGame;
+  const g = state[gIdx];
+  const sched = SCHEDULE[gIdx];
+  const view = document.getElementById('game-detail');
+  const benchedBoth = new Set(benchedBothHalves(gIdx));
+  const onFieldH1 = new Set(POSITIONS.map(p => g.h1[p]).filter(Boolean));
+  const onFieldH2 = new Set(POSITIONS.map(p => g.h2[p]).filter(Boolean));
+  const benchOpen = benchOpenFor === gIdx;
+
+  // Toolbar: include toggle + undo/redo
+  const canUndo = historyIndex > 0;
+  const canRedo = historyIndex < history.length - 1;
+  let html = '';
+  html += '<div class="game-toolbar">';
+  html +=   '<div class="toolbar-left">';
+  html +=     '<label class="include-toggle' + (included[gIdx] ? ' active' : '') + '">' +
+                '<input type="checkbox" id="game-include"' + (included[gIdx] ? ' checked' : '') + '>' +
+                '<span>Include in totals</span>' +
+              '</label>';
+  html +=   '</div>';
+  html +=   '<button class="icon-btn" id="btn-undo" ' + (canUndo ? '' : 'disabled') + ' title="Undo">↶</button>';
+  html +=   '<button class="icon-btn" id="btn-redo" ' + (canRedo ? '' : 'disabled') + ' title="Redo">↷</button>';
+  html += '</div>';
+
+  // Pitch card
+  html += '<div class="pitch-card">';
+  html +=   '<div class="pitch">';
+  html += POSITIONS.map(p => {
+    const h1 = g.h1[p] || '', h2 = g.h2[p] || '';
+    const full = h1 && h1 === h2;
+    const h1PlaysBoth = !full && h1 && onFieldH2.has(h1) ? 'plays-both' : '';
+    const h2PlaysBoth = !full && h2 && onFieldH1.has(h2) ? 'plays-both' : '';
+    return '<div class="pos-box pos-' + p.toLowerCase() + '">' +
+      '<div class="pos-label"><span class="pos-spacer"></span><span class="pos-name">' + p + '</span><span class="pos-spacer"></span></div>' +
+      '<div class="chip-row' + (full ? ' full-game' : '') + '">' +
+        chipHtml(gIdx, 'h1', p, h1, h1PlaysBoth) +
+        chipHtml(gIdx, 'h2', p, h2, h2PlaysBoth) +
+      '</div>' +
+    '</div>';
+  }).join('');
+  html +=   '</div>';
+
+  // Bench drawer toggle
+  const benchCount = BENCH_KEYS.filter(k => g.h1[k] || g.h2[k]).length * 2;
+  html +=   '<button class="bench-drawer-toggle" id="bench-toggle" aria-expanded="' + benchOpen + '">' +
+              '<span>Bench (' + benchCount + ' slots)</span><span class="chev">▼</span>' +
+            '</button>';
+  html +=   '<div class="bench-section' + (benchOpen ? ' open' : '') + '" id="bench-section">';
+  html +=     '<div class="bench-row"><div class="bench-label">Bench H1</div><div class="chip-row">' +
+                BENCH_KEYS.map(k => {
+                  const pl = g.h1[k] || '';
+                  return chipHtml(gIdx, 'h1', k, pl, benchedBoth.has(pl) ? 'benched-both' : '');
+                }).join('') +
+              '</div></div>';
+  html +=     '<div class="bench-row"><div class="bench-label">Bench H2</div><div class="chip-row">' +
+                BENCH_KEYS.map(k => {
+                  const pl = g.h2[k] || '';
+                  return chipHtml(gIdx, 'h2', k, pl, benchedBoth.has(pl) ? 'benched-both' : '');
+                }).join('') +
+              '</div></div>';
+  html +=   '</div>';
+
+  // Mini minute strip
+  html +=   '<div class="game-min-strip">';
+  html +=     '<h4>This game — minutes per player</h4>';
+  html +=     '<div class="strip-row">';
+  html += PLAYERS.map(pl => {
+    const sec = playerMinsPerGame(pl, gIdx);
+    const maxSec = 25 * 60;
+    const pct = (sec / maxSec) * 100;
+    const r = playerRatio(pl);
+    const hue = r !== null ? hueForRatio(r) : 60;
+    return '<div class="strip-cell" title="' + pl + ' — ' + formatMin(sec) + '">' +
+      '<div class="strip-fill" style="--cell-hue:' + hue + ';--cell-h:' + pct + '%"></div>' +
+      '<span class="strip-init">' + playerInitials(pl) + '</span>' +
+    '</div>';
+  }).join('');
+  html +=     '</div>';
+  html +=   '</div>';
+
+  html += '</div>';
+
+  view.innerHTML = html;
+
+  // Handlers
+  document.getElementById('game-include').addEventListener('change', (e) => {
+    included[gIdx] = e.target.checked; saveAll(); pushHistory(); renderActiveTab();
+  });
+  document.getElementById('btn-undo').addEventListener('click', undo);
+  document.getElementById('btn-redo').addEventListener('click', redo);
+  document.getElementById('bench-toggle').addEventListener('click', () => {
+    benchOpenFor = benchOpen ? null : gIdx;
+    renderGameDetail();
+  });
+
+  // Chip handlers
+  view.querySelectorAll('.slot').forEach(slot => {
+    slot.addEventListener('dragstart', onDragStart);
+    slot.addEventListener('dragover', onDragOver);
+    slot.addEventListener('dragleave', onDragLeave);
+    slot.addEventListener('drop', onDrop);
+    slot.addEventListener('dragend', onDragEnd);
+    slot.addEventListener('click', onChipClick);
+    slot.addEventListener('contextmenu', (e) => { e.preventDefault(); openChipSheet(slot); });
+    // long-press for touch
+    let t = null;
+    slot.addEventListener('touchstart', () => { t = setTimeout(() => openChipSheet(slot), 500); });
+    slot.addEventListener('touchend',   () => { if (t) { clearTimeout(t); t = null; } });
+    slot.addEventListener('touchmove',  () => { if (t) { clearTimeout(t); t = null; } });
+  });
+}
+
+/* ─── Minutes tab ─── */
+function renderMinutesTab() {
+  const total = PLAYERS.length;
+  const activeGames = included.filter(Boolean).length;
+  document.getElementById('minutes-count').textContent = total + ' players · ' + activeGames + '/5 games counted';
+
+  const list = document.getElementById('minutes-cards');
+  const sorted = PLAYERS.slice().sort((a,b) => {
+    const d = playerTotalSec(a) - playerTotalSec(b);
+    if (d !== 0) return d;
+    return a.localeCompare(b);
+  });
+  list.innerHTML = sorted.map(p => {
+    const totalSec = playerTotalSec(p);
+    const r = playerRatio(p);
+    const hue = r !== null ? hueForRatio(r) : 60;
+    const pct = r !== null ? Math.min(100, Math.max(0, r * 80)) : 0;
+    const isPrio = PRIORITY.has(p);
+    const status = r === null ? 'ok' : (r < 0.7 ? 'under' : (r > 1.1 ? 'priority' : 'ok'));
+    const avatarBg = 'hsl(' + hue + ', 55%, 30%)';
+    const avatarFg = 'hsl(' + hue + ', 90%, 80%)';
+    const avatarRing = 'hsl(' + hue + ', 75%, 55%)';
+    const avatarGlow = status === 'priority' ? 'rgba(34,197,94,0.4)' : (status === 'under' ? 'rgba(239,68,68,0.4)' : 'transparent');
+
+    const gamesHtml = [0,1,2,3,4].map(i => {
+      const sec = playerMinsPerGame(p, i);
       const gk = playerGKInGame(p, i);
-      let gkBadge = '';
-      if (gk === 'full') gkBadge = '<span class="gk-mark" title="Goalkeeper — full game">GK</span>';
-      else if (gk === 'h1') gkBadge = '<span class="gk-mark" title="Goalkeeper — first half only">GK·H1</span>';
-      else if (gk === 'h2') gkBadge = '<span class="gk-mark" title="Goalkeeper — second half only">GK·H2</span>';
-      html += `<td class="min-cell ${classes.join(' ')}">${gkBadge}${formatMin(secs)}</td>`;
+      let cls = 'game-dot';
+      if (!included[i]) cls += ' excluded';
+      if (sec === 1500) cls += ' full';
+      else if (sec === 750) cls += ' half';
+      else cls += ' zero';
+      const gkBadge = gk ? '<span class="gk-badge-tiny">' + (gk === 'full' ? 'GK' : (gk === 'h1' ? 'GK·H1' : 'GK·H2')) + '</span>' : '';
+      return '<div class="' + cls + '">' +
+        '<span class="dot-label">G' + (i+1) + '</span>' +
+        '<span class="dot-mins">' + formatMin(sec) + '</span>' +
+        gkBadge +
+      '</div>';
+    }).join('');
+
+    return '<div class="player-card ' + status + '" data-player="' + p.replace(/"/g,'&quot;') + '" ' +
+      'style="--card-hue:' + hue + ';--card-width:' + pct + '%;' +
+      '--avatar-bg:' + avatarBg + ';--avatar-fg:' + avatarFg + ';--avatar-ring:' + avatarRing + ';--avatar-glow:' + avatarGlow + '">' +
+      '<div class="card-avatar">' + playerInitials(p) + '</div>' +
+      '<div class="card-name">' + p + (isPrio ? ' ★' : '') + '</div>' +
+      '<div class="card-total">' + formatMin(totalSec) + (r !== null ? '<span class="ratio">' + Math.round(r*100) + '% of fair share</span>' : '') + '</div>' +
+      '<div class="card-bar"><div class="card-bar-fill"></div></div>' +
+      '<div class="card-games">' + gamesHtml + '</div>' +
+    '</div>';
+  }).join('');
+
+  list.querySelectorAll('.player-card').forEach(card => {
+    card.addEventListener('click', () => {
+      const p = card.dataset.player;
+      toggleHighlight(p);
+      openPlayerSheet(p);
     });
-    html += `<td class="min-cell total-col ${totalClass}">${formatMin(total)}</td></tr>`;
-  }
-  html += '</tbody>';
-  table.innerHTML = html;
+  });
 }
 
-// Reset — fully clear stored state and reload so the app re-seeds cleanly
-document.getElementById('reset-btn').addEventListener('click', () => {
-  if (!confirm('Reset all games to the original plan? This discards your changes and re-enables all games.')) return;
-  try {
-    localStorage.removeItem(STORAGE_KEY);
-    localStorage.removeItem(LEGACY_KEY);
-  } catch (e) { /* ignore */ }
-  location.reload();
-});
+/* ─── Plans tab ─── */
+function renderPlans() {
+  const view = document.getElementById('plans-view');
+  const map = loadVersions();
+  const names = Object.keys(map).sort((a,b) => new Date(map[b].savedAt) - new Date(map[a].savedAt));
+  let html = '';
 
-// Export (full snapshot — games + included flags)
-document.getElementById('export-btn').addEventListener('click', () => {
-  // Export a FULL backup: current working state + every named version.
+  // Current plan
+  html += '<div class="plans-section">';
+  html +=   '<h4>Current plan</h4>';
+  if (currentVersionName) {
+    html +=  '<div class="current-plan-row">' +
+               '<span class="icon">📂</span>' +
+               '<div class="meta"><div class="name">' + currentVersionName + '</div>' +
+                 '<div class="ts">Working copy — unsaved edits are in the auto-save slot</div></div>' +
+             '</div>';
+    html +=  '<button class="btn primary" id="plan-save-changes">Save changes to "' + currentVersionName + '"</button>';
+    html +=  '<button class="btn" id="plan-save-as">Save as new version…</button>';
+  } else {
+    html +=  '<div class="current-plan-row">' +
+               '<span class="icon">✏️</span>' +
+               '<div class="meta"><div class="name">Unsaved working copy</div>' +
+                 '<div class="ts">Auto-saves locally in your browser</div></div>' +
+             '</div>';
+    html +=  '<button class="btn primary" id="plan-save-as">Save as new version…</button>';
+  }
+  html += '</div>';
+
+  // Versions list
+  html += '<div class="plans-section">';
+  html +=   '<h4>Saved versions (' + names.length + ')</h4>';
+  if (names.length === 0) {
+    html += '<div class="version-empty">No saved versions yet.</div>';
+  } else {
+    html += '<div class="version-list">';
+    names.forEach(n => {
+      const v = map[n];
+      const d = new Date(v.savedAt);
+      const ts = (d.getMonth()+1) + '/' + d.getDate() + ' ' + d.getHours().toString().padStart(2,'0') + ':' + d.getMinutes().toString().padStart(2,'0');
+      const isCurrent = currentVersionName === n;
+      html += '<div class="version-row ' + (isCurrent ? 'current' : '') + '" data-name="' + encodeURIComponent(n) + '">' +
+        '<span class="vname" title="' + n.replace(/"/g,'&quot;') + '">' + (isCurrent ? '📂 ' : '') + n + '</span>' +
+        '<span class="vtime">' + ts + '</span>' +
+        '<button class="vbtn" data-action="load" title="Load">↵</button>' +
+        '<button class="vbtn" data-action="rename" title="Rename">✎</button>' +
+        '<button class="vbtn delete" data-action="delete" title="Delete">✕</button>' +
+      '</div>';
+    });
+    html += '</div>';
+  }
+  html += '</div>';
+
+  // Backup
+  html += '<div class="plans-section">';
+  html +=   '<h4>Backup</h4>';
+  html +=   '<div class="btn-row">' +
+              '<button class="btn" id="plan-export">Export .json</button>' +
+              '<button class="btn" id="plan-import">Import .json</button>' +
+            '</div>';
+  html +=   '<button class="btn" id="plan-share">Copy share URL</button>';
+  html += '</div>';
+
+  // Danger
+  html += '<div class="plans-section danger">';
+  html +=   '<h4>Danger zone</h4>';
+  html +=   '<button class="btn danger" id="plan-reset">Reset to original plan</button>';
+  html += '</div>';
+
+  view.innerHTML = html;
+
+  // Handlers
+  const bSaveChanges = document.getElementById('plan-save-changes');
+  if (bSaveChanges) bSaveChanges.addEventListener('click', () => {
+    saveVersion(currentVersionName, true); renderPlans();
+  });
+  document.getElementById('plan-save-as').addEventListener('click', () => {
+    const suggested = currentVersionName ? (currentVersionName + ' (copy)') : 'Plan ' + new Date().toLocaleString();
+    const input = prompt('Save as:', suggested);
+    if (!input) return;
+    const n = input.trim(); if (!n) return;
+    if (saveVersion(n)) { currentVersionName = n; saveAll(); renderPlans(); }
+  });
+  view.querySelectorAll('.version-row').forEach(row => {
+    const name = decodeURIComponent(row.dataset.name);
+    row.querySelector('[data-action="load"]').addEventListener('click', (e) => { e.stopPropagation(); applyVersion(name); });
+    row.querySelector('[data-action="rename"]').addEventListener('click', (e) => { e.stopPropagation(); renameVersion(name); });
+    row.querySelector('[data-action="delete"]').addEventListener('click', (e) => { e.stopPropagation(); deleteVersion(name); });
+    // Tap the name area → load
+    row.querySelector('.vname').addEventListener('click', () => applyVersion(name));
+  });
+  document.getElementById('plan-export').addEventListener('click', exportJson);
+  document.getElementById('plan-import').addEventListener('click', () => document.getElementById('import-file').click());
+  document.getElementById('plan-share').addEventListener('click', shareUrl);
+  document.getElementById('plan-reset').addEventListener('click', resetPlan);
+}
+
+function exportJson() {
   const snapshot = {
     formatVersion: 2,
     savedAt: new Date().toISOString(),
-    games: state,
-    included,
-    showBenches,
-    currentVersionName,
+    games: state, included, currentVersionName,
     versions: loadVersions(),
   };
   const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url;
-  a.download = `tournament-plan-${new Date().toISOString().slice(0,10)}.json`;
-  a.click();
+  a.href = url; a.download = 'matchops-planner-' + new Date().toISOString().slice(0,10) + '.json'; a.click();
   URL.revokeObjectURL(url);
-});
-
-// Import (restore from a .json file)
-document.getElementById('import-btn').addEventListener('click', () => {
-  document.getElementById('import-file').click();
-});
+}
 document.getElementById('import-file').addEventListener('change', (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
+  const file = e.target.files[0]; if (!file) return;
   const reader = new FileReader();
   reader.onload = (ev) => {
     try {
       const data = JSON.parse(ev.target.result);
-      if (!data.games || !Array.isArray(data.games) || data.games.length !== 5) {
-        alert('Invalid file: expected a tournament snapshot with 5 games.');
-        return;
-      }
-      const hasVersions = data.versions && typeof data.versions === 'object' && Object.keys(data.versions).length > 0;
-      const versionCount = hasVersions ? Object.keys(data.versions).length : 0;
-      const msg = hasVersions
-        ? `Replace current plan AND import ${versionCount} named version${versionCount === 1 ? '' : 's'}?\n\nCurrent auto-saved state will be overwritten. Existing named versions will be merged (same names get overwritten).`
-        : 'Replace current plan with the imported snapshot? Your current state will be overwritten.';
-      if (!confirm(msg)) return;
-
+      if (!data.games || data.games.length !== 5) { alert('Invalid file.'); return; }
+      const hasVer = data.versions && Object.keys(data.versions).length > 0;
+      const n = hasVer ? Object.keys(data.versions).length : 0;
+      if (!confirm('Replace current plan' + (hasVer ? (' AND import ' + n + ' version(s)?') : '?'))) return;
       state = data.games;
-      included = Array.isArray(data.included) ? data.included.slice(0, 5) : DEFAULT_INCLUDED.slice();
+      included = (data.included || DEFAULT_INCLUDED).slice(0,5);
       while (included.length < 5) included.push(true);
-      if (data.showBenches !== undefined) {
-        showBenches = !!data.showBenches;
-        const toggle = document.getElementById('show-benches-toggle');
-        if (toggle) toggle.checked = showBenches;
-      }
       currentVersionName = data.currentVersionName || null;
-
-      if (hasVersions) {
-        // Merge imported versions into existing map (imported wins on name collision)
-        const existing = loadVersions();
-        const merged = { ...existing, ...data.versions };
+      if (hasVer) {
+        const merged = Object.assign({}, loadVersions(), data.versions);
         saveVersionsMap(merged);
       }
-
-      saveAll();
-      renderTabs();
-      renderGame();
-      renderTotals();
-      updateCurrentVersionLabel();
-      alert(hasVersions
-        ? `Imported current plan + ${versionCount} named version${versionCount === 1 ? '' : 's'} successfully.`
-        : 'Imported plan successfully.');
-    } catch (err) {
-      alert('Could not parse file: ' + err.message);
-    }
+      saveAll(); pushHistory(); renderActiveTab();
+    } catch (err) { alert('Parse error: ' + err.message); }
   };
-  reader.readAsText(file);
-  e.target.value = '';
+  reader.readAsText(file); e.target.value = '';
 });
-
-// ───── Named versions ─────
-const VERSIONS_KEY = 'matchops-planner-versions-v1';
-
-function loadVersions() {
+async function shareUrl() {
+  const snapshot = { games: state, included };
   try {
-    const raw = localStorage.getItem(VERSIONS_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (parsed && typeof parsed === 'object') return parsed;
+    const str = JSON.stringify(snapshot);
+    // URL-safe base64
+    const b64 = btoa(unescape(encodeURIComponent(str))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+    const url = location.origin + location.pathname + '#plan=' + b64;
+    if (navigator.clipboard) await navigator.clipboard.writeText(url);
+    alert('Share URL copied to clipboard (length ' + url.length + ' chars). Paste it into a message; opening that URL will offer to import the plan.');
+  } catch (e) { alert('Could not create share URL: ' + e.message); }
+}
+function resetPlan() {
+  if (!confirm('Reset all games to the original plan? This clears saved state (versions kept).')) return;
+  try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
+  location.reload();
+}
+
+/* Try importing from URL hash on load */
+(function tryImportFromHash() {
+  const m = location.hash.match(/#plan=([A-Za-z0-9_\-]+)/);
+  if (!m) return;
+  try {
+    const b64 = m[1].replace(/-/g,'+').replace(/_/g,'/') + '='.repeat((4 - m[1].length % 4) % 4);
+    const str = decodeURIComponent(escape(atob(b64)));
+    const data = JSON.parse(str);
+    if (!data.games || data.games.length !== 5) return;
+    if (confirm('A shared plan is in the URL. Load it?')) {
+      state = data.games;
+      included = (data.included || DEFAULT_INCLUDED).slice(0,5);
+      while (included.length < 5) included.push(true);
+      currentVersionName = null;
+      saveAll(); pushHistory();
     }
-  } catch (e) { /* ignore */ }
-  return {};
+    if (window.history && window.history.replaceState) window.history.replaceState(null, '', location.pathname);
+  } catch (e) {}
+})();
+
+/* ══════════════════ Drag & tap handlers ══════════════════ */
+let dragSource = null;
+function onDragStart(e) {
+  const s = e.currentTarget;
+  dragSource = { game: s.dataset.game, half: s.dataset.half, key: s.dataset.key };
+  e.dataTransfer.effectAllowed = 'move';
+  s.style.opacity = '0.4';
 }
-function saveVersionsMap(map) {
-  localStorage.setItem(VERSIONS_KEY, JSON.stringify(map));
+function onDragOver(e) {
+  if (!dragSource) return;
+  const s = e.currentTarget;
+  if (s.dataset.game !== dragSource.game) return;
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  s.classList.add('drag-over');
 }
-function makeSnapshot() {
-  return {
-    games: JSON.parse(JSON.stringify(state)),
-    included: included.slice(),
-    showBenches,
-    savedAt: new Date().toISOString(),
-  };
+function onDragLeave(e) { e.currentTarget.classList.remove('drag-over'); }
+function onDrop(e) {
+  e.preventDefault();
+  const t = e.currentTarget; t.classList.remove('drag-over');
+  if (!dragSource) return;
+  if (t.dataset.game !== dragSource.game) return;
+  if (t.dataset.half === dragSource.half && t.dataset.key === dragSource.key) return;
+  performSwap(parseInt(dragSource.game,10), dragSource.half, dragSource.key, t.dataset.half, t.dataset.key);
 }
-function saveVersion(name, silent) {
-  const map = loadVersions();
-  if (!silent && map[name] && !confirm(`"${name}" already exists. Overwrite?`)) return false;
-  map[name] = makeSnapshot();
-  saveVersionsMap(map);
-  return true;
+function onDragEnd(e) {
+  e.currentTarget.style.opacity = '';
+  document.querySelectorAll('.slot.drag-over').forEach(s => s.classList.remove('drag-over'));
+  dragSource = null;
 }
-function saveChangesToCurrent() {
-  if (!currentVersionName) return;
-  saveVersion(currentVersionName, true); // silent overwrite
-  renderVersionsMenu();
+function onChipClick(e) {
+  const s = e.currentTarget;
+  const gIdx = parseInt(s.dataset.game, 10);
+  const half = s.dataset.half, key = s.dataset.key;
+  const player = state[gIdx][half][key];
+  if (!player) return;
+
+  if (!tapSelected) { tapSelected = { game: gIdx, half, key }; renderGameDetail(); return; }
+  if (tapSelected.game === gIdx && tapSelected.half === half && tapSelected.key === key) { tapSelected = null; renderGameDetail(); return; }
+  if (tapSelected.game !== gIdx) { tapSelected = { game: gIdx, half, key }; renderGameDetail(); return; }
+
+  const src = tapSelected; tapSelected = null;
+  performSwap(gIdx, src.half, src.key, half, key);
 }
-function saveAsNewCopy() {
-  const suggested = currentVersionName ? `${currentVersionName} (copy)` : `Plan ${new Date().toLocaleString()}`;
-  const input = prompt('Save as:', suggested);
-  if (!input) return;
-  const trimmed = input.trim();
-  if (!trimmed) return;
-  if (!saveVersion(trimmed)) return;
-  currentVersionName = trimmed;
-  saveAll();
-  renderVersionsMenu();
-}
-function deleteVersion(name) {
-  if (!confirm(`Delete "${name}"?`)) return;
-  const map = loadVersions();
-  delete map[name];
-  saveVersionsMap(map);
-  if (name === currentVersionName) {
-    currentVersionName = null;
-    saveAll();
-  }
-  renderVersionsMenu();
-}
-function renameVersion(oldName) {
-  const map = loadVersions();
-  if (!map[oldName]) return;
-  const input = prompt(`Rename "${oldName}" to:`, oldName);
-  if (input === null) return;
-  const newName = input.trim();
-  if (!newName || newName === oldName) return;
-  if (map[newName] && !confirm(`"${newName}" already exists. Overwrite?`)) return;
-  map[newName] = map[oldName];
-  delete map[oldName];
-  saveVersionsMap(map);
-  if (currentVersionName === oldName) {
-    currentVersionName = newName;
-    saveAll();
-  }
-  renderVersionsMenu();
-}
-function applyVersion(name) {
-  const map = loadVersions();
-  const v = map[name];
-  if (!v) return;
-  if (!confirm(`Load "${name}"? The current auto-saved state will be replaced (save it as a version first if you want to keep it).`)) return;
-  state = JSON.parse(JSON.stringify(v.games));
-  included = (v.included || DEFAULT_INCLUDED).slice(0, 5);
-  while (included.length < 5) included.push(true);
-  showBenches = v.showBenches !== undefined ? v.showBenches : true;
-  document.getElementById('show-benches-toggle').checked = showBenches;
-  highlightedPlayers.clear();
-  currentVersionName = name;
-  saveAll();
-  renderTabs();
-  renderGame();
-  renderTotals();
-  closeVersionsMenu();
-}
-function renderVersionsMenu() {
-  const menu = document.getElementById('versions-menu');
-  const map = loadVersions();
-  const names = Object.keys(map).sort((a, b) => {
-    return new Date(map[b].savedAt) - new Date(map[a].savedAt); // newest first
+
+/* ══════════════════ Bottom sheet ══════════════════ */
+function openSheet(title, sub, actions) {
+  document.getElementById('sheet-title').textContent = title;
+  document.getElementById('sheet-sub').textContent = sub || '';
+  const actionsBox = document.getElementById('sheet-actions');
+  actionsBox.innerHTML = '';
+  actions.forEach(a => {
+    const b = document.createElement('button');
+    b.className = 'btn' + (a.variant ? ' ' + a.variant : '');
+    b.textContent = a.label;
+    b.addEventListener('click', () => { closeSheet(); setTimeout(a.onClick, 160); });
+    actionsBox.appendChild(b);
   });
-  let html = '';
-  if (currentVersionName && map[currentVersionName]) {
-    const safeCur = currentVersionName.replace(/"/g, '&quot;').replace(/</g,'&lt;');
-    html += `<div class="versions-item save-row" id="versions-save-changes">💾 Save changes to "${safeCur}"</div>`;
-    html += `<div class="versions-item save-row" id="versions-save-as">💾 Save as new copy…</div>`;
+  document.getElementById('sheet-backdrop').classList.add('open');
+  document.getElementById('bottom-sheet').classList.add('open');
+}
+function closeSheet() {
+  document.getElementById('sheet-backdrop').classList.remove('open');
+  document.getElementById('bottom-sheet').classList.remove('open');
+}
+document.getElementById('sheet-backdrop').addEventListener('click', closeSheet);
+
+function openChipSheet(slot) {
+  const gIdx = parseInt(slot.dataset.game, 10);
+  const half = slot.dataset.half, key = slot.dataset.key;
+  const g = state[gIdx];
+  const player = g[half][key];
+  if (!player) return;
+  const isFieldPos = POSITIONS.includes(key);
+  const actions = [];
+  actions.push({
+    label: isHighlighted(player) ? 'Stop tracking across games' : 'Track across all games',
+    onClick: () => { toggleHighlight(player); renderActiveTab(); }
+  });
+  if (isFieldPos) {
+    const h1p = g.h1[key], h2p = g.h2[key];
+    if (h1p && h2p && h1p !== h2p) {
+      actions.push({ label: 'Keep ' + h1p + ' for full game', variant: 'primary', onClick: () => mergeH(gIdx, key, 'h1') });
+      actions.push({ label: 'Keep ' + h2p + ' for full game', variant: 'primary', onClick: () => mergeH(gIdx, key, 'h2') });
+    } else if (h1p && h1p === h2p) {
+      actions.push({ label: 'Split into starter + sub', variant: 'primary', onClick: () => splitMerged(gIdx, key) });
+    }
+  }
+  const sub = 'Position: ' + key + ' · ' + (half === 'h1' ? '1st half' : '2nd half');
+  openSheet(player, sub, actions);
+}
+function openPlayerSheet(player) {
+  const total = playerTotalSec(player);
+  const r = playerRatio(player);
+  const pct = r !== null ? Math.round(r*100) + '% of fair share' : '';
+  const actions = [
+    { label: isHighlighted(player) ? 'Stop tracking across games' : 'Track across all games',
+      onClick: () => { toggleHighlight(player); renderActiveTab(); } },
+    { label: 'Jump to Games tab', onClick: () => setTab('games') },
+  ];
+  openSheet(player, formatMin(total) + ' total · ' + pct, actions);
+}
+function mergeH(gIdx, pos, keepHalf) {
+  const g = state[gIdx];
+  const keeper = g[keepHalf][pos];
+  const displaced = g[keepHalf === 'h1' ? 'h2' : 'h1'][pos];
+  if (!keeper || displaced === keeper) return;
+  const otherHalf = keepHalf === 'h1' ? 'h2' : 'h1';
+  const target = findKeyInHalf(g, otherHalf, keeper, pos);
+  if (target) {
+    const tmp = g[otherHalf][pos]; g[otherHalf][pos] = keeper; g[otherHalf][target] = tmp;
   } else {
-    html += `<div class="versions-item save-row" id="versions-save-row">💾 Save current as…</div>`;
+    g[otherHalf][pos] = keeper; g[otherHalf].bench0 = displaced;
   }
-  if (names.length === 0) {
-    html += `<div class="versions-empty">No saved versions yet.</div>`;
-  } else {
-    html += names.map(name => {
-      const v = map[name];
-      const d = new Date(v.savedAt);
-      const time = `${d.getMonth()+1}/${d.getDate()} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
-      const safeName = name.replace(/"/g, '&quot;').replace(/</g,'&lt;');
-      const isCurrent = name === currentVersionName;
-      return `
-        <div class="versions-item ${isCurrent ? 'current' : ''}" data-action="load" data-name="${encodeURIComponent(name)}">
-          <span class="version-name" title="${safeName}">${safeName}</span>
-          <span class="version-time">${time}</span>
-          <button class="version-rename" data-action="rename" data-name="${encodeURIComponent(name)}" title="Rename version">✎</button>
-          <button class="version-delete" data-action="delete" data-name="${encodeURIComponent(name)}" title="Delete version">✕</button>
-        </div>
-      `;
-    }).join('');
-  }
-  menu.innerHTML = html;
-
-  const saveRow = menu.querySelector('#versions-save-row');
-  if (saveRow) {
-    saveRow.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const name = prompt('Save version as:', `Plan ${new Date().toLocaleString()}`);
-      if (!name) return;
-      const trimmed = name.trim();
-      if (!trimmed) return;
-      if (saveVersion(trimmed)) {
-        currentVersionName = trimmed;
-        saveAll();
-        renderVersionsMenu();
-      }
-    });
-  }
-  const saveChanges = menu.querySelector('#versions-save-changes');
-  if (saveChanges) {
-    saveChanges.addEventListener('click', (e) => {
-      e.stopPropagation();
-      saveChangesToCurrent();
-    });
-  }
-  const saveAs = menu.querySelector('#versions-save-as');
-  if (saveAs) {
-    saveAs.addEventListener('click', (e) => {
-      e.stopPropagation();
-      saveAsNewCopy();
-    });
-  }
-  menu.querySelectorAll('[data-action="load"]').forEach(el => {
-    el.addEventListener('click', (e) => {
-      if (e.target.closest('[data-action="delete"]') || e.target.closest('[data-action="rename"]')) return;
-      applyVersion(decodeURIComponent(el.dataset.name));
-    });
-  });
-  menu.querySelectorAll('[data-action="rename"]').forEach(el => {
-    el.addEventListener('click', (e) => {
-      e.stopPropagation();
-      renameVersion(decodeURIComponent(el.dataset.name));
-    });
-  });
-  menu.querySelectorAll('[data-action="delete"]').forEach(el => {
-    el.addEventListener('click', (e) => {
-      e.stopPropagation();
-      deleteVersion(decodeURIComponent(el.dataset.name));
-    });
-  });
+  saveAll(); pushHistory(); renderActiveTab();
 }
-function openVersionsMenu() {
-  document.querySelector('.versions-wrap').classList.add('open');
-  renderVersionsMenu();
+function splitMerged(gIdx, pos) {
+  const g = state[gIdx];
+  const tmp = g.h2[pos]; g.h2[pos] = g.h2.bench0; g.h2.bench0 = tmp;
+  saveAll(); pushHistory(); renderActiveTab();
 }
-function closeVersionsMenu() {
-  document.querySelector('.versions-wrap').classList.remove('open');
+
+/* ══════════════════ Tab navigation ══════════════════ */
+function setTab(name) {
+  activeTab = name;
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  document.querySelector('.nav-item[data-tab="' + name + '"]').classList.add('active');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  renderActiveTab();
 }
-document.getElementById('versions-btn').addEventListener('click', (e) => {
-  e.stopPropagation();
-  const wrap = document.querySelector('.versions-wrap');
-  if (wrap.classList.contains('open')) closeVersionsMenu();
-  else openVersionsMenu();
-});
-document.addEventListener('click', (e) => {
-  if (!e.target.closest('.versions-wrap')) closeVersionsMenu();
-});
+document.querySelectorAll('.nav-item').forEach(n => n.addEventListener('click', () => setTab(n.dataset.tab)));
+document.getElementById('version-badge').addEventListener('click', () => setTab('plans'));
 
-// ── Mobile actions menu (hamburger) ──
-document.getElementById('actions-btn').addEventListener('click', (e) => {
-  e.stopPropagation();
-  document.getElementById('controls').classList.toggle('open');
-});
-document.addEventListener('click', (e) => {
-  // Close the mobile menu if clicking outside of it (but don't close when interacting inside)
-  const controls = document.getElementById('controls');
-  const actionsBtn = document.getElementById('actions-btn');
-  if (!controls.classList.contains('open')) return;
-  if (e.target === actionsBtn || actionsBtn.contains(e.target)) return;
-  if (controls.contains(e.target)) return;
-  controls.classList.remove('open');
-});
-
-// Show-benches toggle
-const benchesToggle = document.getElementById('show-benches-toggle');
-benchesToggle.checked = showBenches;
-benchesToggle.addEventListener('change', (e) => {
-  showBenches = e.target.checked;
-  saveAll();
-  renderGame();
-});
-
-// Show-players toggle
-const playersToggle = document.getElementById('show-players-toggle');
-playersToggle.checked = showPlayers;
-playersToggle.addEventListener('change', (e) => {
-  showPlayers = e.target.checked;
-  saveAll();
-  renderGame();
-});
-
-renderTabs();
-renderGame();
-renderTotals();
-updateCurrentVersionLabel();
-
-// ── Service Worker registration + auto-reload when a new version is deployed ──
+/* ══════════════════ Service worker ══════════════════ */
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').then((registration) => {
-      // Check for updates on focus / visibility change (e.g. user returns to PWA)
-      const triggerUpdateCheck = () => registration.update().catch(() => { /* offline */ });
-      document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible') triggerUpdateCheck();
-      });
-      window.addEventListener('focus', triggerUpdateCheck);
-
-      // When a new SW is installed and waiting, tell it to activate; when it takes over, reload once.
-      registration.addEventListener('updatefound', () => {
-        const installing = registration.installing;
-        if (!installing) return;
-        installing.addEventListener('statechange', () => {
-          if (installing.state === 'installed' && navigator.serviceWorker.controller) {
-            installing.postMessage({ type: 'SKIP_WAITING' });
-          }
+    navigator.serviceWorker.register('/sw.js').then(reg => {
+      const update = () => reg.update().catch(() => {});
+      document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') update(); });
+      window.addEventListener('focus', update);
+      reg.addEventListener('updatefound', () => {
+        const w = reg.installing;
+        if (!w) return;
+        w.addEventListener('statechange', () => {
+          if (w.state === 'installed' && navigator.serviceWorker.controller) w.postMessage({ type: 'SKIP_WAITING' });
         });
       });
-    }).catch(() => { /* registration failed — app still works without SW */ });
-
-    // When the controlling SW changes (new version activated), reload the page once.
-    let hasReloadedOnce = false;
-    navigator.serviceWorker.addEventListener('controllerchange', () => {
-      if (hasReloadedOnce) return;
-      hasReloadedOnce = true;
-      window.location.reload();
-    });
+    }).catch(() => {});
+    let reloaded = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => { if (!reloaded) { reloaded = true; location.reload(); } });
   });
 }
+
+/* ══════════════════ Init ══════════════════ */
+renderActiveTab();
 </script>
 </body>
 </html>
