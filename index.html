@@ -113,27 +113,30 @@ button { border: none; background: none; color: inherit; cursor: pointer; }
   text-overflow: ellipsis; overflow: hidden; white-space: nowrap;
   text-shadow: 0 1px 2px rgba(0,0,0,0.5);
 }
-.version-badge {
-  display: none;
-  align-items: center; gap: 4px;
-  padding: 5px 10px; border-radius: var(--r-pill);
-  background: rgba(56,189,248,0.15);
-  border: 1px solid rgba(56,189,248,0.45);
-  color: #7dd3fc;
-  font-size: 11px; font-weight: 700;
-  max-width: 120px;
-  flex-shrink: 0;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-.version-badge.has-version { display: inline-flex; }
 .save-status {
   font-size: 10px; color: var(--success); font-weight: 600;
   flex-shrink: 0;
   transition: opacity 0.3s;
 }
+/* Plan name — plain text line under the ribbon, no pill/icon */
+.plan-name {
+  display: none;
+  padding: 0 4px;
+  margin: -4px 0 10px;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.2px;
+  color: var(--text-mute);
+  background: none; border: none;
+  text-align: left;
+  max-width: 100%;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  cursor: pointer;
+}
+.plan-name.has-version { display: block; }
+.plan-name:hover { color: var(--text-dim); }
 @media (max-width: 420px) {
   .app-title { font-size: 17px; }
-  .version-badge { max-width: 84px; font-size: 10px; padding: 4px 8px; }
   .save-status { display: none; } /* reclaim space on narrow */
 }
 @media (max-width: 340px) {
@@ -743,7 +746,6 @@ input[type="checkbox"] { accent-color: var(--success); cursor: pointer; }
 <header class="app-bar">
   <img class="app-logo" src="/logo.png" alt="MatchOps" width="36" height="36">
   <div class="app-title">MatchOps Planner</div>
-  <button id="version-badge" class="version-badge" title="Go to Plans tab"></button>
   <span id="save-status" class="save-status"></span>
 </header>
 
@@ -753,6 +755,7 @@ input[type="checkbox"] { accent-color: var(--success); cursor: pointer; }
   <!-- Games tab -->
   <section id="tab-games" class="tab-panel active">
     <div id="ribbon" class="ribbon"></div>
+    <div id="plan-name" class="plan-name" title="Go to Plans tab"></div>
     <div id="game-detail"></div>
   </section>
 
@@ -1041,12 +1044,12 @@ function renderActiveTab() {
   updateVersionBadge();
 }
 
-/* ─── Version badge ─── */
+/* ─── Plan name line (under the ribbon) ─── */
 function updateVersionBadge() {
-  const b = document.getElementById('version-badge');
+  const b = document.getElementById('plan-name');
   if (!b) return;
   if (currentVersionName) {
-    b.textContent = '📂 ' + currentVersionName;
+    b.textContent = currentVersionName;
     b.classList.add('has-version');
   } else {
     b.textContent = '';
@@ -1583,7 +1586,7 @@ function setTab(name) {
   renderActiveTab();
 }
 document.querySelectorAll('.nav-item').forEach(n => n.addEventListener('click', () => setTab(n.dataset.tab)));
-document.getElementById('version-badge').addEventListener('click', () => setTab('plans'));
+document.getElementById('plan-name').addEventListener('click', () => setTab('plans'));
 
 /* ══════════════════ Service worker ══════════════════ */
 if ('serviceWorker' in navigator) {
