@@ -1315,6 +1315,14 @@ function renderPlans() {
   document.getElementById('plan-reset').addEventListener('click', resetPlan);
 }
 
+function safeFilenamePart(s) {
+  return (s || '')
+    .replace(/[\/\\?%*:|"<>]/g, '-')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 60);
+}
 function exportJson() {
   const snapshot = {
     formatVersion: 2,
@@ -1325,7 +1333,11 @@ function exportJson() {
   const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url; a.download = 'matchops-planner-' + new Date().toISOString().slice(0,10) + '.json'; a.click();
+  const date = new Date().toISOString().slice(0, 10);
+  const verPart = currentVersionName ? safeFilenamePart(currentVersionName) + '_' : '';
+  a.href = url;
+  a.download = 'matchops-planner_' + verPart + date + '.json';
+  a.click();
   URL.revokeObjectURL(url);
 }
 document.getElementById('import-file').addEventListener('change', (e) => {
