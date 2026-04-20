@@ -347,26 +347,26 @@ button { border: none; background: none; color: inherit; cursor: pointer; }
 }
 .pitch > * { position: relative; z-index: 1; }
 .pitch::before {
-  /* outer boundary line */
+  /* outer boundary line — crisper chalk-white */
   content: ''; position: absolute; inset: 6px;
-  border: 1px solid rgba(255,255,255,0.22);
+  border: 1.5px solid rgba(255,255,255,0.38);
   border-radius: 6px;
   pointer-events: none;
 }
 .pitch::after {
-  /* center line + center circle as a combined sprite */
+  /* center line + center circle as a combined sprite — crisper chalk */
   content: ''; position: absolute; left: 7px; right: 7px; top: 50%;
-  height: 66px; transform: translateY(-50%);
+  height: 68px; transform: translateY(-50%);
   background:
     radial-gradient(circle at 50% 50%,
       transparent 0 32px,
-      rgba(255,255,255,0.22) 32px 33px,
-      transparent 33px),
+      rgba(255,255,255,0.38) 32px 33.5px,
+      transparent 33.5px),
     linear-gradient(to bottom,
-      transparent calc(50% - 0.5px),
-      rgba(255,255,255,0.22) calc(50% - 0.5px),
-      rgba(255,255,255,0.22) calc(50% + 0.5px),
-      transparent calc(50% + 0.5px));
+      transparent calc(50% - 0.75px),
+      rgba(255,255,255,0.38) calc(50% - 0.75px),
+      rgba(255,255,255,0.38) calc(50% + 0.75px),
+      transparent calc(50% + 0.75px));
   pointer-events: none;
 }
 .pos-box {
@@ -404,11 +404,13 @@ button { border: none; background: none; color: inherit; cursor: pointer; }
 .pos-name { flex: 0 0 auto; text-align: center; padding: 0 2px; }
 
 .chip-row { display: flex; gap: 4px; }
+
+/* ─── Team-sheet chip: cream card, left edge-tab indicates half ─── */
 .slot {
-  padding: 7px 4px 11px;
+  padding: 7px 6px 11px 10px; /* extra left padding for the edge tab */
   font-size: 13px; font-weight: 600;
   text-align: center; user-select: none;
-  border-radius: 6px;
+  border-radius: 4px;
   min-height: 38px; line-height: 1.2;
   flex: 1; min-width: 0;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -416,40 +418,50 @@ button { border: none; background: none; color: inherit; cursor: pointer; }
   position: relative;
   cursor: grab;
   font-family: 'Rajdhani', system-ui, sans-serif;
-  letter-spacing: 0.3px;
-  transition: transform 0.1s ease, box-shadow 0.18s ease, background 0.18s ease, border-color 0.18s ease;
-}
-/* H1 — cool slate/silver pill */
-.slot[data-half="h1"] {
-  background: linear-gradient(180deg, rgba(241,245,249,0.97) 0%, rgba(203,213,225,0.92) 100%);
-  color: #0f172a;
-  border: 1px solid rgba(100,116,139,0.6);
+  letter-spacing: 0.4px;
+  background: linear-gradient(180deg, #f7eedc 0%, #ecdcb7 100%);
+  color: #1e293b;
+  border: 1px solid rgba(71,85,105,0.32);
   box-shadow:
-    0 1px 2px rgba(0,0,0,0.4),
-    inset 0 1px 0 rgba(255,255,255,0.6),
-    inset 0 -1px 0 rgba(100,116,139,0.2);
+    0 1px 2px rgba(0,0,0,0.38),
+    inset 0 1px 0 rgba(255,255,255,0.75),
+    inset 0 -1px 0 rgba(139,115,85,0.14);
+  transition: transform 0.1s ease, box-shadow 0.18s ease, border-color 0.18s ease;
 }
-/* H2 — warm amber pill */
-.slot[data-half="h2"] {
-  background: linear-gradient(180deg, rgba(253,230,138,0.97) 0%, rgba(251,191,36,0.92) 100%);
-  color: #451a03;
-  border: 1px solid rgba(180,83,9,0.65);
-  box-shadow:
-    0 1px 2px rgba(0,0,0,0.4),
-    inset 0 1px 0 rgba(255,255,255,0.5),
-    inset 0 -1px 0 rgba(180,83,9,0.2);
+/* Left edge-tab — colored bar indicating which half */
+.slot::before {
+  content: ''; position: absolute; left: 0; top: 0; bottom: 0;
+  width: 4px; background: transparent;
+  box-shadow: inset -1px 0 0 rgba(0,0,0,0.18);
+  z-index: 1;
 }
-/* Full-game (plays both halves in this slot) — premium gold */
+.slot[data-half="h1"]::before {
+  background: linear-gradient(180deg, #64748b 0%, #334155 100%); /* steel-slate */
+}
+.slot[data-half="h2"]::before {
+  background: linear-gradient(180deg, #f59e0b 0%, #b45309 100%); /* amber */
+}
+
+/* Full-game (plays both halves in this slot) — cream pill, amber border, corner star */
 .chip-row.full-game .slot[data-half="h1"] {
-  background: linear-gradient(180deg, #fde68a 0%, #f59e0b 100%);
-  color: #431407;
-  border: 1px solid #b45309;
-  font-weight: 700;
+  padding: 7px 10px 11px; /* balanced — no edge tab */
+  border: 1.5px solid #b45309;
   box-shadow:
-    0 3px 10px rgba(217,119,6,0.3),
-    inset 0 1px 0 rgba(255,255,255,0.55),
-    inset 0 -1px 0 rgba(120,53,15,0.25);
-  flex: 1;
+    0 2px 8px rgba(180,83,9,0.28),
+    inset 0 1px 0 rgba(255,255,255,0.8),
+    inset 0 -1px 0 rgba(139,115,85,0.22),
+    0 0 0 0.5px rgba(180,83,9,0.2);
+  font-weight: 700;
+}
+.chip-row.full-game .slot[data-half="h1"]::before {
+  display: none; /* no edge tab on full-game */
+}
+.chip-row.full-game .slot[data-half="h1"]::after {
+  content: '★'; position: absolute;
+  top: 2px; right: 4px;
+  font-size: 9px; color: #b45309; opacity: 0.65;
+  line-height: 1; z-index: 2;
+  text-shadow: 0 1px 0 rgba(255,255,255,0.5);
 }
 .chip-row.full-game .slot[data-half="h2"] { display: none; }
 
@@ -466,42 +478,50 @@ button { border: none; background: none; color: inherit; cursor: pointer; }
   box-shadow:
     0 0 14px rgba(251,191,36,0.45),
     0 1px 2px rgba(0,0,0,0.4),
-    inset 0 1px 0 rgba(255,255,255,0.55);
+    inset 0 1px 0 rgba(255,255,255,0.75);
   z-index: 2;
 }
 .slot.highlighted {
-  outline: 2px solid #fb923c;
+  outline: 2px solid #ea580c;
   outline-offset: 2px;
   z-index: 1;
 }
-.slot:not(.highlighted).any-highlighted { opacity: 0.32; filter: saturate(0.55); }
+.slot:not(.highlighted).any-highlighted { opacity: 0.35; filter: saturate(0.55); }
 
+/* Warning states */
 .slot.benched-both {
-  background: linear-gradient(180deg, rgba(239,68,68,0.5), rgba(185,28,28,0.5)) !important;
-  border-color: rgba(248,113,113,0.7) !important;
-  color: #fee2e2 !important;
+  background: linear-gradient(180deg, #fee2e2 0%, #fecaca 100%) !important;
+  color: #7f1d1d !important;
+  border-color: rgba(185,28,28,0.55) !important;
   font-weight: 700;
-  text-shadow: 0 1px 2px rgba(0,0,0,0.5);
 }
-.slot.plays-both {
-  box-shadow:
-    0 1px 2px rgba(0,0,0,0.4),
-    inset 0 1px 0 rgba(255,255,255,0.55),
-    inset 0 0 0 2px rgba(239,68,68,0.6);
+.slot.benched-both::before {
+  background: linear-gradient(180deg, #dc2626 0%, #991b1b 100%) !important;
+}
+/* plays-both: small red dot top-right (player also plays elsewhere this game) */
+.slot.plays-both::after {
+  content: ''; position: absolute;
+  top: 3px; right: 3px;
+  width: 6px; height: 6px; border-radius: 50%;
+  background: #dc2626;
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.7), 0 0 4px rgba(220,38,38,0.4);
+  z-index: 2;
 }
 
-/* per-chip minute bar */
+/* per-chip minute bar — avoids the left edge-tab */
 .chip-min-bar {
-  position: absolute; bottom: 2px; left: 4px; right: 4px;
+  position: absolute; bottom: 2px; left: 8px; right: 4px;
   height: 2.5px; border-radius: 2px;
-  background: rgba(0,0,0,0.2);
+  background: rgba(30,41,59,0.16);
   overflow: hidden;
+  z-index: 1;
 }
+.chip-row.full-game .chip-min-bar { left: 4px; }
 .chip-min-fill {
   height: 100%; border-radius: 2px;
-  background: hsl(var(--chip-hue, 60), 78%, 48%);
+  background: hsl(var(--chip-hue, 60), 68%, 42%);
   width: var(--chip-ratio, 0%);
-  box-shadow: 0 0 4px hsla(var(--chip-hue, 60), 85%, 55%, 0.55);
+  box-shadow: 0 0 3px hsla(var(--chip-hue, 60), 75%, 50%, 0.45);
 }
 
 /* Bench drawer */
@@ -535,19 +555,26 @@ button { border: none; background: none; color: inherit; cursor: pointer; }
   font-family: 'Rajdhani', system-ui, sans-serif;
 }
 .bench-row .chip-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
-/* Bench chips = muted/ghost versions of field chips */
-.bench-row .slot[data-half="h1"] {
-  background: linear-gradient(180deg, rgba(148,163,184,0.22), rgba(100,116,139,0.18));
+/* Bench chips — dark slate cards (so "on pitch" vs "in reserve" reads instantly).
+   Still use the H1/H2 edge-tab from the base .slot rule. */
+.bench-row .slot {
+  background: linear-gradient(180deg, rgba(51,65,85,0.7), rgba(30,41,59,0.85));
   color: #e2e8f0;
-  border: 1px solid rgba(148,163,184,0.35);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.06);
+  border: 1px solid rgba(71,85,105,0.55);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.05),
+    0 1px 2px rgba(0,0,0,0.3);
 }
-.bench-row .slot[data-half="h2"] {
-  background: linear-gradient(180deg, rgba(251,191,36,0.22), rgba(217,119,6,0.18));
-  color: #fbbf24;
-  border: 1px solid rgba(217,119,6,0.45);
-  box-shadow: inset 0 1px 0 rgba(251,191,36,0.12);
+.bench-row .slot[data-half="h1"]::before {
+  background: linear-gradient(180deg, #64748b 0%, #334155 100%);
+  opacity: 0.85;
 }
+.bench-row .slot[data-half="h2"]::before {
+  background: linear-gradient(180deg, #f59e0b 0%, #b45309 100%);
+  opacity: 0.85;
+}
+/* bench minute-bar reads on dark background */
+.bench-row .chip-min-bar { background: rgba(0,0,0,0.35); }
 
 /* Mini minute bar (per-game strip) */
 .game-min-strip {
