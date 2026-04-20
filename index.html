@@ -203,40 +203,61 @@ button { border: none; background: none; color: inherit; cursor: pointer; }
 }
 .ribbon-game {
   flex: 0 0 auto; scroll-snap-align: start;
-  padding: 10px 32px 10px 14px; border-radius: var(--r-md);
-  background: var(--bg-elev);
-  border: 1px solid var(--border-soft);
+  padding: 11px 34px 11px 14px; border-radius: var(--r-md);
+  background:
+    linear-gradient(180deg, rgba(51,65,85,0.55) 0%, rgba(30,41,59,0.75) 55%, rgba(15,23,42,0.85) 100%);
+  border: 1px solid rgba(71,85,105,0.5);
   color: var(--text-dim);
-  display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
-  min-width: 140px;
+  display: flex; flex-direction: column; align-items: flex-start; gap: 3px;
+  min-width: 144px;
   position: relative; overflow: hidden;
-  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.04),
+    0 1px 2px rgba(0,0,0,0.35);
+  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
 }
 .ribbon-game::before {
+  /* thin top accent bar — transparent by default, amber when active */
   content: ''; position: absolute; left: 0; right: 0; top: 0;
   height: 2px; background: transparent;
-  transition: background 0.15s ease;
+  transition: background 0.18s ease;
+}
+.ribbon-game::after {
+  /* hairline divider between label and opp rows for a classic card look */
+  content: ''; position: absolute; left: 14px; right: 34px;
+  top: 28px; height: 1px;
+  background: linear-gradient(to right, rgba(148,163,184,0.18), rgba(148,163,184,0.04));
+  pointer-events: none;
 }
 .ribbon-game .ribbon-label {
   font-size: 10px; font-weight: 700; color: var(--text-mute);
-  letter-spacing: 0.6px; text-transform: uppercase;
+  letter-spacing: 0.8px; text-transform: uppercase;
 }
 .ribbon-game .ribbon-opp {
   font-size: 14px; font-weight: 600; color: var(--text);
+  margin-top: 4px;
 }
 .ribbon-game .ribbon-time {
   font-size: 10px; color: var(--text-mute); font-variant-numeric: tabular-nums;
+  letter-spacing: 0.3px;
 }
 .ribbon-game.active {
-  background: linear-gradient(to bottom, rgba(30,41,59,0.95), rgba(15,23,42,0.92));
-  border-color: rgba(251,191,36,0.55);
+  background:
+    linear-gradient(180deg, rgba(51,65,85,0.92) 0%, rgba(30,41,59,0.95) 60%, rgba(15,23,42,0.95) 100%);
+  border-color: rgba(251,191,36,0.6);
   color: var(--text);
-  box-shadow: 0 4px 14px rgba(0,0,0,0.4), inset 0 0 0 1px rgba(251,191,36,0.08);
+  box-shadow:
+    0 6px 18px rgba(0,0,0,0.45),
+    inset 0 1px 0 rgba(251,191,36,0.18),
+    inset 0 0 0 1px rgba(251,191,36,0.08);
 }
 .ribbon-game.active::before {
-  background: linear-gradient(to right, transparent 0%, var(--accent) 20%, var(--accent) 80%, transparent 100%);
+  background: linear-gradient(to right, transparent 0%, var(--accent) 18%, var(--accent) 82%, transparent 100%);
 }
-.ribbon-game.active .ribbon-label { color: var(--accent); letter-spacing: 0.8px; }
+.ribbon-game.active::after {
+  background: linear-gradient(to right, rgba(251,191,36,0.55), rgba(251,191,36,0.08));
+}
+.ribbon-game.active .ribbon-label { color: var(--accent); letter-spacing: 1px; }
 .ribbon-game.active .ribbon-opp  { color: var(--text); }
 .ribbon-game.active .ribbon-time { color: var(--text-dim); }
 .ribbon-game.excluded { opacity: 0.45; }
