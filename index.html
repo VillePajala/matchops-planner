@@ -19,27 +19,49 @@
 <style>
   /* MatchOps Planner — dark slate theme inspired by MatchOps-Local */
   * { box-sizing: border-box; }
-  html, body { min-height: 100%; }
+  html, body { min-height: 100%; background: #0f172a; }
   body {
     font-family: 'Rajdhani', system-ui, -apple-system, sans-serif;
     font-weight: 500;
     margin: 0;
     padding: 14px;
+    padding-top: max(14px, env(safe-area-inset-top));
+    padding-bottom: max(14px, env(safe-area-inset-bottom));
+    padding-left: max(14px, env(safe-area-inset-left));
+    padding-right: max(14px, env(safe-area-inset-right));
     color: #e2e8f0;
     background:
-      radial-gradient(at top left, rgba(56,189,248,0.06), transparent 50%),
-      radial-gradient(at bottom right, rgba(99,102,241,0.08), transparent 50%),
-      linear-gradient(to bottom, #0f172a, #1e293b);
+      radial-gradient(at top left, rgba(56,189,248,0.05), transparent 55%),
+      radial-gradient(at bottom right, rgba(99,102,241,0.06), transparent 55%),
+      #0f172a;
     background-attachment: fixed;
     min-height: 100vh;
     min-height: 100dvh;
+  }
+  .app-title {
+    margin: 0 0 14px;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: clamp(24px, 5vw, 34px);
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    color: #fbbf24;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.4);
+  }
+  .app-title .save-status {
+    display: inline-block;
+    margin-left: 10px;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.3px;
+    color: #4ade80;
+    vertical-align: middle;
   }
   h1 {
     margin: 0 0 4px;
     font-size: 22px;
     font-weight: 700;
     letter-spacing: 0.5px;
-    color: #fde047;
+    color: #fbbf24;
     text-shadow: 0 1px 2px rgba(0,0,0,0.5);
   }
   h3 {
@@ -102,7 +124,7 @@
     padding: 7px 14px;
     background: rgba(51,65,85,0.8);
     border: 1px solid rgba(71,85,105,0.6);
-    color: #fde047;
+    color: #fbbf24;
     border-radius: 6px;
     font-size: 18px;
     line-height: 1;
@@ -247,7 +269,7 @@
     margin: 0 0 10px;
     font-size: 16px;
     font-weight: 700;
-    color: #fde047;
+    color: #fbbf24;
     letter-spacing: 0.5px;
   }
   .half.focused {
@@ -300,7 +322,7 @@
     gap: 3px;
     font-family: inherit;
     font-size: 9px;
-    color: #fde047;
+    color: #fbbf24;
     font-weight: 700;
     letter-spacing: 0.6px;
     margin-bottom: 3px;
@@ -311,7 +333,7 @@
   .pos-wrench {
     flex: 0 0 20px;
     background: rgba(255,255,255,0.1);
-    color: #fde047;
+    color: #fbbf24;
     border: 1px solid rgba(255,255,255,0.25);
     border-radius: 3px;
     font-size: 11px;
@@ -516,28 +538,36 @@
     outline-offset: 2px;
   }
 
-  /* Totals table */
+  /* Totals table — fits viewport, never scrolls sideways */
   .totals {
     background: linear-gradient(to bottom, rgba(30,41,59,0.95), rgba(15,23,42,0.9));
     border: 1px solid rgba(71,85,105,0.4);
     border-radius: 8px;
-    padding: 12px;
+    padding: 10px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-    overflow-x: auto;
   }
-  .totals h3 { color: #fde047; }
+  .totals h3 { color: #fbbf24; margin-bottom: 6px; }
   .totals table {
     width: 100%;
     border-collapse: collapse;
     font-family: inherit;
-    font-size: 13px;
-    min-width: 480px;
+    font-size: 12px;
+    table-layout: fixed;
   }
   .totals th, .totals td {
-    padding: 6px 10px;
+    padding: 5px 4px;
     text-align: left;
     border-bottom: 1px solid rgba(71,85,105,0.3);
     color: #cbd5e1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .totals th:first-child, .totals td:first-child {
+    width: 22%;
+    max-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .totals th {
     background: rgba(51,65,85,0.5);
@@ -552,7 +582,7 @@
     font-variant-numeric: tabular-nums;
     font-weight: 600;
   }
-  .totals .total-col { font-weight: 700; background: rgba(51,65,85,0.4); color: #fde047; }
+  .totals .total-col { font-weight: 700; background: rgba(51,65,85,0.4); color: #fbbf24; }
   .totals .zero { color: #f87171; font-weight: 700; }
   .totals .below-half { color: #fb923c; }
   .totals .priority { color: #4ade80; font-weight: 700; }
@@ -591,48 +621,74 @@
   /* ═══════════════ Mobile / narrow viewports ═══════════════ */
   @media (max-width: 780px) {
     body { padding: 10px; }
-    h1 { font-size: 18px; }
+    .app-title { margin-bottom: 10px; }
+    .app-title .save-status { display: block; margin: 2px 0 0; }
 
-    .tabs { gap: 3px; position: relative; }
-    .tab { padding: 6px 10px; font-size: 12px; }
+    .tabs {
+      gap: 4px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .tab { padding: 5px 8px; font-size: 11px; gap: 4px; flex: 0 0 auto; }
+    .tab .tab-check { width: 13px; height: 13px; }
 
-    /* Hamburger shows; inline controls hide (converted to dropdown panel) */
-    .actions-btn { display: inline-flex; }
+    /* Amber hamburger on mobile — visually distinct */
+    .actions-btn {
+      display: inline-flex;
+      order: 99;
+      margin-left: auto;
+      padding: 6px 14px;
+      font-size: 22px;
+      background: linear-gradient(to bottom, #f59e0b, #d97706);
+      border-color: #fbbf24;
+      color: #1e293b;
+      font-weight: 800;
+    }
+    .actions-btn:hover {
+      background: linear-gradient(to bottom, #fbbf24, #f59e0b);
+      color: #0f172a;
+    }
+
+    /* Controls become an inline panel that wraps below the tabs row */
     .controls {
       display: none;
-      position: absolute;
-      top: calc(100% + 6px);
-      right: 0;
-      z-index: 80;
+      order: 100;
+      flex: 0 0 100%;
+      width: 100%;
+      margin-top: 10px;
+      margin-left: 0;
+      padding: 12px;
       flex-direction: column;
       align-items: stretch;
-      min-width: 240px;
-      padding: 10px;
-      background: linear-gradient(to bottom, #1e293b, #0f172a);
+      background: linear-gradient(to bottom, rgba(30,41,59,0.98), rgba(15,23,42,0.98));
       border: 1px solid rgba(71,85,105,0.6);
-      border-radius: 8px;
-      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
-      gap: 6px;
-      margin-left: 0;
+      border-radius: 10px;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.5);
+      gap: 8px;
+      position: static;
     }
     .controls.open { display: flex; }
     .controls button,
     .controls > label,
-    .controls .versions-wrap {
-      width: 100%;
+    .controls .versions-wrap { width: 100%; }
+    .controls button,
+    .controls > label {
+      padding: 11px 12px;
+      font-size: 13px;
+      justify-content: flex-start;
+      text-align: left;
     }
-    .controls button, .controls > label { justify-content: flex-start; text-align: left; }
-    .versions-wrap #versions-btn { width: 100%; text-align: left; }
+    .versions-wrap #versions-btn { width: 100%; text-align: left; padding: 11px 12px; font-size: 13px; }
     .versions-menu {
       position: static;
       margin-top: 6px;
       min-width: 0;
       max-width: 100%;
-      max-height: 50vh;
+      max-height: 45vh;
     }
     .current-version-label { max-width: 100%; }
 
-    /* Carousel on narrow screens */
+    /* Carousel — one game per view, swipe to switch */
     .games-container {
       display: flex;
       overflow-x: auto;
@@ -648,34 +704,44 @@
       scroll-snap-align: center;
       min-width: 280px;
     }
-    .pos-box { width: 140px; }
-    .slot { min-height: 34px; font-size: 13px; padding: 5px 3px; }
-    .player-list { padding: 8px; }
-    .player-pill { padding: 7px 11px; font-size: 13px; }
-    .player-pill .player-min { font-size: 12px; }
+    .pos-box { width: 138px; }
+    .slot { min-height: 32px; font-size: 12px; padding: 5px 3px; }
+
+    .player-list { padding: 8px; gap: 5px; }
+    .player-pill { padding: 6px 10px; font-size: 12px; }
+    .player-pill .player-min { font-size: 11px; }
+    .player-pill .player-ratio { font-size: 9px; }
+
+    /* Totals table: fit viewport, no horizontal scroll */
+    .totals { padding: 8px; }
+    .totals table { font-size: 11px; }
+    .totals th, .totals td { padding: 4px 3px; font-size: 11px; }
+    .totals th:first-child, .totals td:first-child { width: 24%; }
+    .totals .gk-mark { font-size: 8px; padding: 1px 3px; margin-right: 2px; letter-spacing: 0.1px; }
   }
 
   @media (max-width: 480px) {
     .half { flex: 0 0 94vw; }
-    .pos-box { width: 132px; }
-    .slot { font-size: 12px; }
+    .pos-box { width: 130px; }
+    .slot { font-size: 11px; padding: 4px 2px; }
+    .player-pill { padding: 5px 9px; font-size: 11px; }
+    .totals table { font-size: 10px; }
+    .totals th, .totals td { padding: 3px 2px; }
   }
 </style>
 </head>
 <body>
 
-<h1>Tournament Planner — Pepo Violetti</h1>
-<p style="font-size: 12px; color: #666; margin: 0 0 10px;">
-  Auto-saves to your browser after every change — close the tab, come back, it's still there.
-  Use <strong>Export JSON</strong> for an extra backup file; <strong>Import JSON</strong> to restore one.
-  <span id="save-status" style="color: #2d5; font-weight: 600;"></span>
-</p>
+<h1 class="app-title">Tournament planner<span id="save-status" class="save-status"></span></h1>
 
 <div class="tabs" id="tabs">
   <button id="actions-btn" class="actions-btn" aria-label="Open actions menu">⋯</button>
   <div class="controls" id="controls">
     <label>
       <input type="checkbox" id="show-benches-toggle" style="margin-right:4px;accent-color:#22c55e;"> Show benches
+    </label>
+    <label>
+      <input type="checkbox" id="show-players-toggle" style="margin-right:4px;accent-color:#22c55e;"> Show player list
     </label>
     <span id="current-version-label" class="current-version-label" title="Currently editing this named version"></span>
     <div class="versions-wrap">
@@ -771,6 +837,7 @@ const loaded = loadAll();
 let state = loaded.games;
 let included = loaded.included;
 let showBenches = loaded.showBenches;
+let showPlayers = loaded.showPlayers;
 let currentVersionName = loaded.currentVersionName;
 let selectedGame = 0;
 const highlightedPlayers = new Set();  // click-to-track state (multi-select, on pills)
@@ -817,6 +884,7 @@ function loadAll() {
           games: parsed.games,
           included: parsed.included.slice(0, 5).concat(DEFAULT_INCLUDED.slice(parsed.included.length)),
           showBenches: parsed.showBenches !== undefined ? parsed.showBenches : true,
+          showPlayers: parsed.showPlayers !== undefined ? parsed.showPlayers : true,
           currentVersionName: parsed.currentVersionName || null,
         };
       }
@@ -826,7 +894,7 @@ function loadAll() {
     if (legacy) {
       const games = JSON.parse(legacy);
       if (Array.isArray(games)) {
-        return { games, included: DEFAULT_INCLUDED.slice(), showBenches: true, currentVersionName: null };
+        return { games, included: DEFAULT_INCLUDED.slice(), showBenches: true, showPlayers: true, currentVersionName: null };
       }
     }
   } catch (e) { /* ignore */ }
@@ -834,11 +902,12 @@ function loadAll() {
     games: JSON.parse(JSON.stringify(SEED)),
     included: DEFAULT_INCLUDED.slice(),
     showBenches: true,
+    showPlayers: true,
     currentVersionName: null,
   };
 }
 function saveAll() {
-  const snapshot = { games: state, included, showBenches, currentVersionName, savedAt: new Date().toISOString() };
+  const snapshot = { games: state, included, showBenches, showPlayers, currentVersionName, savedAt: new Date().toISOString() };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
   showSaved();
   updateCurrentVersionLabel();
@@ -1036,8 +1105,8 @@ function renderGame() {
   const view = document.getElementById('game-view');
   view.innerHTML = '';
 
-  // Player status list (color-coded by tournament total)
-  view.appendChild(renderPlayerList());
+  // Player status list (color-coded by tournament total) — hideable via Show player list toggle
+  if (showPlayers) view.appendChild(renderPlayerList());
 
   const includedIndices = [0,1,2,3,4].filter(i => included[i]);
 
@@ -1669,6 +1738,15 @@ const benchesToggle = document.getElementById('show-benches-toggle');
 benchesToggle.checked = showBenches;
 benchesToggle.addEventListener('change', (e) => {
   showBenches = e.target.checked;
+  saveAll();
+  renderGame();
+});
+
+// Show-players toggle
+const playersToggle = document.getElementById('show-players-toggle');
+playersToggle.checked = showPlayers;
+playersToggle.addEventListener('change', (e) => {
+  showPlayers = e.target.checked;
   saveAll();
   renderGame();
 });
