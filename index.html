@@ -1060,15 +1060,19 @@ function loadAll() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const p = JSON.parse(raw);
-      if (p && Array.isArray(p.games) && p.games.length === 5) {
+      if (p && validateGamesShape(p.games)) {
         return {
           games: p.games,
           included: Array.isArray(p.included) ? p.included.slice(0,5).concat(DEFAULT_INCLUDED.slice(p.included.length)) : DEFAULT_INCLUDED.slice(),
-          currentVersionName: p.currentVersionName || null,
+          currentVersionName: typeof p.currentVersionName === 'string' ? p.currentVersionName : null,
         };
       }
+      // Stored payload exists but failed validation — log for forensic visibility.
+      try { console.warn('matchops-planner: stored state failed validation, falling back to seed'); } catch (_) {}
     }
-  } catch (e) {}
+  } catch (e) {
+    try { console.warn('matchops-planner: stored state parse error, falling back to seed', e); } catch (_) {}
+  }
   return { games: JSON.parse(JSON.stringify(SEED)), included: DEFAULT_INCLUDED.slice(), currentVersionName: null };
 }
 function saveAll() {
@@ -1131,6 +1135,35 @@ function applyVersion(name) {
 }
 
 /* ══════════════════ Helpers ══════════════════ */
+function escapeHtml(s) {
+  if (s == null) return '';
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+const VALID_PLAYERS_SET = new Set(PLAYERS);
+function validateGamesShape(games) {
+  // Each game must have h1 + h2 with every field/bench slot mapping to an
+  // empty string or a known PLAYERS entry. Rejects imports that could
+  // inject unknown / crafted player strings.
+  if (!Array.isArray(games) || games.length !== 5) return false;
+  for (const g of games) {
+    if (!g || typeof g !== 'object') return false;
+    for (const half of ['h1', 'h2']) {
+      const h = g[half];
+      if (!h || typeof h !== 'object') return false;
+      for (const k of POSITIONS.concat(BENCH_KEYS)) {
+        const v = h[k];
+        if (typeof v !== 'string') return false;
+        if (v !== '' && !VALID_PLAYERS_SET.has(v)) return false;
+      }
+    }
+  }
+  return true;
+}
 function findKeyInHalf(g, half, player, excludeKey) {
   for (const p of POSITIONS) if (p !== excludeKey && g[half][p] === player) return p;
   for (const b of BENCH_KEYS) if (b !== excludeKey && g[half][b] === player) return b;
@@ -1230,7 +1263,19 @@ function performSwap(gIdx, srcHalf, srcKey, tgtHalf, tgtKey) {
     if (srcInTgt) {
       const tmp = g[tgtHalf][tgtKey]; g[tgtHalf][tgtKey] = srcPlayer; g[tgtHalf][srcInTgt] = tmp;
     } else {
-      g[tgtHalf][tgtKey] = srcPlayer; g[tgtHalf].bench0 = tgtPlayer;
+      // srcPlayer isn't in tgtHalf (corrupt/partial state). Park displaced
+      // tgtPlayer in the first empty bench slot if one exists, so we don't
+      // silently overwrite whoever was sitting at bench0.
+      g[tgtHalf][tgtKey] = srcPlayer;
+      const empty = BENCH_KEYS.find(k => !g[tgtHalf][k]);
+      if (empty) {
+        g[tgtHalf][empty] = tgtPlayer;
+      } else {
+        // All bench slots occupied — fall back to the prior behaviour and
+        // note in the console so the state is at least diagnosable.
+        try { console.warn('matchops-planner: cross-half swap with full bench overwrote bench0'); } catch (_) {}
+        g[tgtHalf].bench0 = tgtPlayer;
+      }
     }
   }
   saveAll(); pushHistory(); renderActiveTab();
@@ -1284,7 +1329,7 @@ function renderRibbon() {
       }
       if (i === activeGame) return;
       const direction = i > activeGame ? 'next' : 'prev';
-      activeGame = i; renderGamesTab();
+      activeGame = i; tapSelected = null; renderGamesTab();
       animateGameSwitch(direction);
     });
     container.appendChild(btn);
@@ -1573,12 +1618,13 @@ function renderPlans() {
   html += '<div class="plans-section">';
   html +=   '<h4>Current plan</h4>';
   if (currentVersionName) {
+    const verEsc = escapeHtml(currentVersionName);
     html +=  '<div class="current-plan-row">' +
                '<span class="icon">📂</span>' +
-               '<div class="meta"><div class="name">' + currentVersionName + '</div>' +
+               '<div class="meta"><div class="name">' + verEsc + '</div>' +
                  '<div class="ts">Working copy — unsaved edits are in the auto-save slot</div></div>' +
              '</div>';
-    html +=  '<button class="btn primary" id="plan-save-changes">Save changes to "' + currentVersionName + '"</button>';
+    html +=  '<button class="btn primary" id="plan-save-changes">Save changes to "' + verEsc + '"</button>';
     html +=  '<button class="btn" id="plan-save-as">Save as new version…</button>';
   } else {
     html +=  '<div class="current-plan-row">' +
@@ -1602,12 +1648,13 @@ function renderPlans() {
       const d = new Date(v.savedAt);
       const ts = (d.getMonth()+1) + '/' + d.getDate() + ' ' + d.getHours().toString().padStart(2,'0') + ':' + d.getMinutes().toString().padStart(2,'0');
       const isCurrent = currentVersionName === n;
+      const nEsc = escapeHtml(n);
       html += '<div class="version-row ' + (isCurrent ? 'current' : '') + '" data-name="' + encodeURIComponent(n) + '">' +
-        '<span class="vname" title="' + n.replace(/"/g,'&quot;') + '">' + (isCurrent ? '📂 ' : '') + n + '</span>' +
+        '<span class="vname" title="' + nEsc + '">' + (isCurrent ? '📂 ' : '') + nEsc + '</span>' +
         '<span class="vtime">' + ts + '</span>' +
-        '<button class="vbtn" data-action="load" title="Load">↵</button>' +
-        '<button class="vbtn" data-action="rename" title="Rename">✎</button>' +
-        '<button class="vbtn delete" data-action="delete" title="Delete">✕</button>' +
+        '<button class="vbtn" data-action="load" title="Load" aria-label="Load ' + nEsc + '">↵</button>' +
+        '<button class="vbtn" data-action="rename" title="Rename" aria-label="Rename ' + nEsc + '">✎</button>' +
+        '<button class="vbtn delete" data-action="delete" title="Delete" aria-label="Delete ' + nEsc + '">✕</button>' +
       '</div>';
     });
     html += '</div>';
@@ -1689,16 +1736,28 @@ document.getElementById('import-file').addEventListener('change', (e) => {
   reader.onload = (ev) => {
     try {
       const data = JSON.parse(ev.target.result);
-      if (!data.games || data.games.length !== 5) { alert('Invalid file.'); return; }
-      const hasVer = data.versions && Object.keys(data.versions).length > 0;
-      const n = hasVer ? Object.keys(data.versions).length : 0;
-      if (!confirm('Replace current plan' + (hasVer ? (' AND import ' + n + ' version(s)?') : '?'))) return;
+      if (!validateGamesShape(data && data.games)) {
+        alert('Invalid file: game shape or player names not recognised.');
+        return;
+      }
+      // Filter imported versions to ones that also validate
+      const importedVersions = {};
+      if (data.versions && typeof data.versions === 'object') {
+        for (const name of Object.keys(data.versions)) {
+          const v = data.versions[name];
+          if (v && validateGamesShape(v.games)) importedVersions[name] = v;
+        }
+      }
+      const importedCount = Object.keys(importedVersions).length;
+      const hasVer = importedCount > 0;
+      if (!confirm('Replace current plan' + (hasVer ? (' AND import ' + importedCount + ' version(s)?') : '?'))) return;
       state = data.games;
       included = (data.included || DEFAULT_INCLUDED).slice(0,5);
       while (included.length < 5) included.push(true);
-      currentVersionName = data.currentVersionName || null;
+      const incomingName = typeof data.currentVersionName === 'string' ? data.currentVersionName : null;
+      currentVersionName = incomingName;
       if (hasVer) {
-        const merged = Object.assign({}, loadVersions(), data.versions);
+        const merged = Object.assign({}, loadVersions(), importedVersions);
         saveVersionsMap(merged);
       }
       saveAll(); pushHistory(); renderActiveTab();
@@ -1731,7 +1790,7 @@ function resetPlan() {
     const b64 = m[1].replace(/-/g,'+').replace(/_/g,'/') + '='.repeat((4 - m[1].length % 4) % 4);
     const str = decodeURIComponent(escape(atob(b64)));
     const data = JSON.parse(str);
-    if (!data.games || data.games.length !== 5) return;
+    if (!validateGamesShape(data && data.games)) return; // reject silently — never trust URL payload
     if (confirm('A shared plan is in the URL. Load it?')) {
       state = data.games;
       included = (data.included || DEFAULT_INCLUDED).slice(0,5);
@@ -1971,9 +2030,9 @@ function animateGameSwitch(direction) {
     const dt = Date.now() - startT;
     if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.4 && dt < 700) {
       if (dx < 0 && activeGame < SCHEDULE.length - 1) {
-        activeGame++; renderGamesTab(); animateGameSwitch('next');
+        activeGame++; tapSelected = null; renderGamesTab(); animateGameSwitch('next');
       } else if (dx > 0 && activeGame > 0) {
-        activeGame--; renderGamesTab(); animateGameSwitch('prev');
+        activeGame--; tapSelected = null; renderGamesTab(); animateGameSwitch('prev');
       }
     }
   }, { passive: true });
