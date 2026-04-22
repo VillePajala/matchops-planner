@@ -520,112 +520,77 @@ button { border: none; background: none; color: inherit; cursor: pointer; }
   display: grid; grid-template-columns: repeat(11, 1fr); gap: 4px;
 }
 .game-min-strip .strip-cell {
-  height: 22px; border-radius: 4px; position: relative;
-  background: linear-gradient(180deg, rgba(30,41,59,0.85), rgba(15,23,42,0.75));
-  border: 1px solid rgba(71,85,105,0.45);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
+  height: 28px; border-radius: 4px; position: relative;
+  background: var(--cell-bg, rgba(30,41,59,0.85));
+  color: var(--cell-fg, #e2e8f0);
+  border: 1px solid rgba(0,0,0,0.22);
   cursor: pointer;
   overflow: hidden;
+  padding: 0;
+  display: flex; align-items: center; justify-content: center;
+  transition: filter 0.15s, transform 0.1s;
 }
-.game-min-strip .strip-fill {
-  position: absolute; bottom: 0; left: 0; right: 0;
-  background: linear-gradient(180deg, hsl(var(--cell-hue, 60), 82%, 55%), hsl(var(--cell-hue, 60), 75%, 42%));
-  height: var(--cell-h, 0%);
-  border-radius: 0 0 3px 3px;
+.game-min-strip .strip-cell:hover { filter: brightness(1.08); }
+.game-min-strip .strip-cell:active { transform: scale(0.96); }
+.game-min-strip .strip-cell.highlighted {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
 }
+.game-min-strip .strip-cell.any-highlighted:not(.highlighted) { opacity: 0.42; }
 .game-min-strip .strip-cell .strip-init {
-  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-  font-size: 8px; font-weight: 700; color: var(--text);
-  text-shadow: 0 1px 2px rgba(0,0,0,0.85);
+  font-size: 10px; font-weight: 700;
   letter-spacing: 0.3px;
+  color: inherit;
 }
 
-/* ══════════════════ Minutes tab — player cards ══════════════════ */
-.cards-list { display: flex; flex-direction: column; gap: 10px; }
-.player-card {
+/* ══════════════════ Minutes tab — quick-scan chip grid ══════════════════ */
+.pt-grid {
   display: grid;
-  grid-template-columns: 44px 1fr auto;
-  grid-template-areas:
-    'avatar name total'
-    'avatar bar bar'
-    'games games games';
-  gap: 6px 12px;
-  padding: 12px;
-  background: linear-gradient(to bottom, var(--bg-panel-soft), rgba(15,23,42,0.85));
-  border: 1px solid var(--border-soft);
-  border-radius: var(--r-md);
-  box-shadow: var(--shadow-md);
-  position: relative;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+@media (min-width: 720px) {
+  .pt-grid { grid-template-columns: repeat(3, 1fr); }
+}
+.pt-chip {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px;
+  padding: 14px 16px;
+  min-height: 56px;
+  border-radius: 10px;
+  border: 1px solid rgba(0,0,0,0.22);
+  background: var(--pt-bg);
+  color: var(--pt-fg);
+  font-size: 15px; font-weight: 600;
+  letter-spacing: 0.2px;
+  text-align: left;
   cursor: pointer;
-  transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.08);
+  transition: transform 0.1s, filter 0.15s;
 }
-.player-card:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(0,0,0,0.45); }
-.player-card:active { transform: scale(0.995); }
-.player-card.priority { border-color: rgba(34,197,94,0.45); }
-.player-card.under { border-color: rgba(239,68,68,0.45); }
-.card-avatar {
-  grid-area: avatar;
-  width: 44px; height: 44px; border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 15px; font-weight: 700;
-  background: var(--avatar-bg, var(--bg-elev));
-  color: var(--avatar-fg, var(--text));
-  border: 2px solid var(--avatar-ring, var(--border));
-  box-shadow: 0 0 0 3px var(--bg-base), 0 0 12px var(--avatar-glow, transparent);
+.pt-chip:hover { filter: brightness(1.06); }
+.pt-chip:active { transform: scale(0.97); }
+.pt-chip .pt-name {
+  flex: 1; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.card-name {
-  grid-area: name;
-  font-size: 16px; font-weight: 700; letter-spacing: 0.3px;
-  align-self: center; color: var(--text);
-  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-.card-total {
-  grid-area: total;
-  align-self: center; text-align: right;
-  font-size: 16px; font-weight: 700; color: var(--accent);
+.pt-chip .pt-total {
+  font-weight: 700; font-size: 16px;
   font-variant-numeric: tabular-nums;
+  opacity: 0.92;
+  flex-shrink: 0;
 }
-.card-total .ratio {
-  display: block; font-size: 10px; font-weight: 600; color: var(--text-mute);
-  letter-spacing: 0.3px;
+.pt-chip.prio .pt-name::after {
+  content: ' ★';
+  opacity: 0.55;
+  font-weight: 700;
 }
-.card-bar {
-  grid-area: bar;
-  height: 6px; border-radius: 4px; background: rgba(15,23,42,0.8);
-  border: 1px solid var(--border-soft);
-  overflow: hidden;
+.pt-chip.highlighted {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  filter: brightness(1.1);
 }
-.card-bar-fill {
-  height: 100%; border-radius: 3px;
-  background: linear-gradient(to right, hsl(var(--card-hue, 60), 70%, 40%), hsl(var(--card-hue, 60), 75%, 55%));
-  width: var(--card-width, 0%);
-  transition: width 0.3s;
-}
-.card-games {
-  grid-area: games;
-  display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px;
-  margin-top: 6px;
-}
-.game-dot {
-  padding: 4px 2px;
-  border-radius: 4px;
-  background: rgba(15,23,42,0.7);
-  border: 1px solid var(--border-soft);
-  font-size: 10px; font-weight: 700;
-  text-align: center; color: var(--text-mute);
-  display: flex; flex-direction: column; align-items: center; gap: 1px;
-}
-.game-dot .dot-label { font-size: 9px; color: var(--text-mute); letter-spacing: 0.3px; }
-.game-dot .dot-mins { font-size: 10px; font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; }
-.game-dot.excluded { opacity: 0.4; text-decoration: line-through; }
-.game-dot.full { background: rgba(34,197,94,0.2); border-color: rgba(34,197,94,0.5); color: #86efac; }
-.game-dot.half { background: rgba(251,191,36,0.15); border-color: rgba(251,191,36,0.4); color: #fde68a; }
-.game-dot.zero { background: rgba(239,68,68,0.15); border-color: rgba(239,68,68,0.4); color: #fca5a5; }
-.game-dot .gk-badge-tiny {
-  font-size: 7px; font-weight: 700;
-  padding: 1px 3px; border-radius: 2px;
-  background: #1d4ed8; color: white; letter-spacing: 0.3px;
-}
+.pt-chip.any-highlighted:not(.highlighted) { opacity: 0.48; }
 
 /* Section title (used on tabs) */
 .section-title {
@@ -1040,6 +1005,14 @@ function hueForRatio(r) {
   const c = Math.max(0.4, Math.min(1.5, r));
   return Math.round((c - 0.4) / 1.1 * 150);
 }
+function ratioColors(r) {
+  // Solid background + contrasting text for a ratio-coloured chip.
+  if (r === null) return { bg: '#475569', fg: '#e2e8f0' };
+  const h = hueForRatio(r); // 0 (red) → 150 (green)
+  if (h < 35)     return { bg: 'hsl(' + h + ', 72%, 46%)', fg: '#fef2f2' };  // red — cream text
+  if (h < 85)     return { bg: 'hsl(' + h + ', 78%, 60%)', fg: '#1a1a1a' };  // yellow — dark text
+  return              { bg: 'hsl(' + h + ', 55%, 40%)', fg: '#ecfdf5' };   // green — cream text
+}
 function formatMin(sec) { const m = Math.floor(sec/60), s = sec%60; return m + ':' + s.toString().padStart(2,'0'); }
 function benchedBothHalves(gi) {
   const g = state[gi];
@@ -1224,20 +1197,31 @@ function renderGameDetail() {
               '</div></div>';
   html +=   '</div>';
 
-  // Mini minute strip
-  html +=   '<div class="game-min-strip">';
-  html +=     '<h4>This game — minutes per player</h4>';
+  // Tournament-totals strip (replaces the old per-game strip).
+  // Shows every player as a ratio-coloured cell — red under, yellow near,
+  // green over — sorted ascending by tournament minutes.
+  html +=   '<div class="game-min-strip totals">';
+  html +=     '<h4>Tournament totals</h4>';
   html +=     '<div class="strip-row">';
-  html += PLAYERS.map(pl => {
-    const sec = playerMinsPerGame(pl, gIdx);
-    const maxSec = 25 * 60;
-    const pct = (sec / maxSec) * 100;
+  const sortedForStrip = PLAYERS.slice().sort((a, b) => {
+    const d = playerTotalSec(a) - playerTotalSec(b);
+    if (d !== 0) return d;
+    return a.localeCompare(b);
+  });
+  const anyHi = anyHighlightActive();
+  html += sortedForStrip.map(pl => {
+    const totMin = Math.round(playerTotalSec(pl) / 60);
     const r = playerRatio(pl);
-    const hue = r !== null ? hueForRatio(r) : 60;
-    return '<div class="strip-cell" title="' + pl + ' — ' + formatMin(sec) + '">' +
-      '<div class="strip-fill" style="--cell-hue:' + hue + ';--cell-h:' + pct + '%"></div>' +
+    const c = ratioColors(r);
+    const hl = isHighlighted(pl);
+    const dim = anyHi && !hl;
+    const cls = 'strip-cell' + (hl ? ' highlighted' : '') + (dim ? ' any-highlighted' : '');
+    return '<button class="' + cls + '" ' +
+      'data-player="' + pl.replace(/"/g, '&quot;') + '" ' +
+      'style="--cell-bg:' + c.bg + ';--cell-fg:' + c.fg + '" ' +
+      'title="' + pl + ' — ' + totMin + "'" + '">' +
       '<span class="strip-init">' + playerInitials(pl) + '</span>' +
-    '</div>';
+    '</button>';
   }).join('');
   html +=     '</div>';
   html +=   '</div>';
@@ -1267,6 +1251,15 @@ function renderGameDetail() {
     benchOpenFor = benchOpen ? null : gIdx;
     renderGameDetail();
   });
+  // Strip cells → highlight / open per-player sheet
+  view.querySelectorAll('.game-min-strip .strip-cell').forEach(cell => {
+    const p = cell.dataset.player;
+    if (!p) return;
+    cell.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleHighlight(p);
+    });
+  });
 
   // Chip handlers
   view.querySelectorAll('.slot').forEach(slot => {
@@ -1285,60 +1278,42 @@ function renderGameDetail() {
   });
 }
 
-/* ─── Minutes tab ─── */
+/* ─── Minutes tab — quick-scan chip grid ─── */
 function renderMinutesTab() {
   const total = PLAYERS.length;
   const activeGames = included.filter(Boolean).length;
   document.getElementById('minutes-count').textContent = total + ' players · ' + activeGames + '/5 games counted';
 
   const list = document.getElementById('minutes-cards');
-  const sorted = PLAYERS.slice().sort((a,b) => {
+  list.className = 'pt-grid';
+  const sorted = PLAYERS.slice().sort((a, b) => {
     const d = playerTotalSec(a) - playerTotalSec(b);
     if (d !== 0) return d;
     return a.localeCompare(b);
   });
+  const anyHi = anyHighlightActive();
   list.innerHTML = sorted.map(p => {
-    const totalSec = playerTotalSec(p);
+    const totMin = Math.round(playerTotalSec(p) / 60);
     const r = playerRatio(p);
-    const hue = r !== null ? hueForRatio(r) : 60;
-    const pct = r !== null ? Math.min(100, Math.max(0, r * 80)) : 0;
+    const c = ratioColors(r);
     const isPrio = PRIORITY.has(p);
-    const status = r === null ? 'ok' : (r < 0.7 ? 'under' : (r > 1.1 ? 'priority' : 'ok'));
-    const avatarBg = 'hsl(' + hue + ', 55%, 30%)';
-    const avatarFg = 'hsl(' + hue + ', 90%, 80%)';
-    const avatarRing = 'hsl(' + hue + ', 75%, 55%)';
-    const avatarGlow = status === 'priority' ? 'rgba(34,197,94,0.4)' : (status === 'under' ? 'rgba(239,68,68,0.4)' : 'transparent');
-
-    const gamesHtml = [0,1,2,3,4].map(i => {
-      const sec = playerMinsPerGame(p, i);
-      const gk = playerGKInGame(p, i);
-      let cls = 'game-dot';
-      if (!included[i]) cls += ' excluded';
-      if (sec === 1500) cls += ' full';
-      else if (sec === 750) cls += ' half';
-      else cls += ' zero';
-      const gkBadge = gk ? '<span class="gk-badge-tiny">' + (gk === 'full' ? 'GK' : (gk === 'h1' ? 'GK·H1' : 'GK·H2')) + '</span>' : '';
-      return '<div class="' + cls + '">' +
-        '<span class="dot-label">G' + (i+1) + '</span>' +
-        '<span class="dot-mins">' + formatMin(sec) + '</span>' +
-        gkBadge +
-      '</div>';
-    }).join('');
-
-    return '<div class="player-card ' + status + '" data-player="' + p.replace(/"/g,'&quot;') + '" ' +
-      'style="--card-hue:' + hue + ';--card-width:' + pct + '%;' +
-      '--avatar-bg:' + avatarBg + ';--avatar-fg:' + avatarFg + ';--avatar-ring:' + avatarRing + ';--avatar-glow:' + avatarGlow + '">' +
-      '<div class="card-avatar">' + playerInitials(p) + '</div>' +
-      '<div class="card-name">' + p + (isPrio ? ' ★' : '') + '</div>' +
-      '<div class="card-total">' + formatMin(totalSec) + (r !== null ? '<span class="ratio">' + Math.round(r*100) + '% of fair share</span>' : '') + '</div>' +
-      '<div class="card-bar"><div class="card-bar-fill"></div></div>' +
-      '<div class="card-games">' + gamesHtml + '</div>' +
-    '</div>';
+    const hl = isHighlighted(p);
+    const dim = anyHi && !hl;
+    const cls = 'pt-chip' +
+      (isPrio ? ' prio' : '') +
+      (hl ? ' highlighted' : '') +
+      (dim ? ' any-highlighted' : '');
+    return '<button class="' + cls + '" ' +
+      'data-player="' + p.replace(/"/g, '&quot;') + '" ' +
+      'style="--pt-bg:' + c.bg + ';--pt-fg:' + c.fg + '">' +
+      '<span class="pt-name">' + p + '</span>' +
+      '<span class="pt-total">' + totMin + "'" + '</span>' +
+    '</button>';
   }).join('');
 
-  list.querySelectorAll('.player-card').forEach(card => {
-    card.addEventListener('click', () => {
-      const p = card.dataset.player;
+  list.querySelectorAll('.pt-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      const p = chip.dataset.player;
       toggleHighlight(p);
       openPlayerSheet(p);
     });
