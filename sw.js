@@ -3,7 +3,7 @@
 // the combination of network-first + no-cache HTTP headers on HTML/SW means
 // updates propagate on the first fetch, not after browser cache TTL.
 
-const CACHE_VERSION = 'v16';
+const CACHE_VERSION = 'v17';
 const CACHE_NAME = `matchops-planner-${CACHE_VERSION}`;
 const APP_SHELL = [
   '/',

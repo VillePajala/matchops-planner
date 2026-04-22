@@ -157,6 +157,17 @@ button { border: none; background: none; color: inherit; cursor: pointer; }
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: translateY(0); }
 }
+/* Game carousel slide-in animations (triggered on swipe or ribbon tap) */
+#game-detail.slide-from-right { animation: gameSlideFromRight 0.26s cubic-bezier(0.2, 0.7, 0.2, 1); }
+#game-detail.slide-from-left  { animation: gameSlideFromLeft  0.26s cubic-bezier(0.2, 0.7, 0.2, 1); }
+@keyframes gameSlideFromRight {
+  from { opacity: 0.35; transform: translateX(18%); }
+  to   { opacity: 1;    transform: translateX(0); }
+}
+@keyframes gameSlideFromLeft {
+  from { opacity: 0.35; transform: translateX(-18%); }
+  to   { opacity: 1;    transform: translateX(0); }
+}
 
 .bottom-nav {
   position: fixed; bottom: 0; left: 0; right: 0;
@@ -1130,7 +1141,10 @@ function renderRibbon() {
         saveAll(); pushHistory(); renderActiveTab();
         return;
       }
+      if (i === activeGame) return;
+      const direction = i > activeGame ? 'next' : 'prev';
       activeGame = i; renderGamesTab();
+      animateGameSwitch(direction);
     });
     container.appendChild(btn);
   });
@@ -1645,7 +1659,18 @@ function setTab(name) {
 document.querySelectorAll('.nav-item').forEach(n => n.addEventListener('click', () => setTab(n.dataset.tab)));
 document.getElementById('plan-name').addEventListener('click', () => setTab('plans'));
 
-/* ══════════════════ Swipe carousel (games tab) ══════════════════ */
+/* ══════════════════ Game carousel — slide animation + swipe ══════════════════ */
+function animateGameSwitch(direction) {
+  // direction: 'next' → content slides in from the right;
+  //            'prev' → content slides in from the left
+  const el = document.getElementById('game-detail');
+  if (!el) return;
+  el.classList.remove('slide-from-right', 'slide-from-left');
+  // force reflow so re-adding the same class restarts the animation
+  void el.offsetWidth;
+  el.classList.add(direction === 'next' ? 'slide-from-right' : 'slide-from-left');
+}
+
 (function attachSwipeCarousel() {
   const host = document.getElementById('game-detail');
   if (!host) return;
@@ -1663,10 +1688,12 @@ document.getElementById('plan-name').addEventListener('click', () => setTab('pla
     const dx = t.clientX - startX;
     const dy = t.clientY - startY;
     const dt = Date.now() - startT;
-    // horizontal intent: big X, comparatively small Y, not too slow
     if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.4 && dt < 700) {
-      if (dx < 0 && activeGame < SCHEDULE.length - 1) { activeGame++; renderGamesTab(); }
-      else if (dx > 0 && activeGame > 0)              { activeGame--; renderGamesTab(); }
+      if (dx < 0 && activeGame < SCHEDULE.length - 1) {
+        activeGame++; renderGamesTab(); animateGameSwitch('next');
+      } else if (dx > 0 && activeGame > 0) {
+        activeGame--; renderGamesTab(); animateGameSwitch('prev');
+      }
     }
   }, { passive: true });
 })();
