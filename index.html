@@ -638,6 +638,7 @@ button { border: none; background: none; color: inherit; cursor: pointer; }
 
 /* ══════════════════ Plans tab ══════════════════ */
 .plans-section {
+  display: flex; flex-direction: column; gap: 8px;
   background: linear-gradient(to bottom, var(--bg-panel-soft), rgba(15,23,42,0.85));
   border: 1px solid var(--border-soft);
   border-radius: var(--r-md);
@@ -653,7 +654,7 @@ button { border: none; background: none; color: inherit; cursor: pointer; }
 }
 .plans-section > * { position: relative; z-index: 1; }
 .plans-section h4 {
-  margin: 0 0 10px; font-size: 11px; font-weight: 700;
+  margin: 0 0 4px; font-size: 11px; font-weight: 700;
   text-transform: uppercase; letter-spacing: 0.6px;
   color: var(--text-mute);
 }
@@ -682,9 +683,10 @@ button { border: none; background: none; color: inherit; cursor: pointer; }
   background: rgba(239,68,68,0.15); border-color: rgba(239,68,68,0.5); color: #fca5a5;
 }
 .btn.danger:hover { background: rgba(239,68,68,0.25); }
-.btn + .btn { margin-top: 8px; }
+/* Section-level flex-gap handles spacing; legacy .btn + .btn margin is no-op inside plans */
 .btn-row { display: flex; gap: 8px; }
 .btn-row .btn { flex: 1; width: auto; }
+.plans-section .current-plan-row { margin-bottom: 0; }
 
 .current-plan-row {
   display: flex; align-items: center; gap: 10px;
