@@ -54,6 +54,7 @@ html, body {
   margin: 0; padding: 0;
   min-height: 100%;
   background: var(--bg-base);
+  overflow-x: hidden;
 }
 body {
   font-family: 'Rajdhani', system-ui, -apple-system, sans-serif;
@@ -157,16 +158,31 @@ button { border: none; background: none; color: inherit; cursor: pointer; }
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: translateY(0); }
 }
-/* Game carousel slide-in animations (triggered on swipe or ribbon tap) */
-#game-detail.slide-from-right { animation: gameSlideFromRight 0.26s cubic-bezier(0.2, 0.7, 0.2, 1); }
-#game-detail.slide-from-left  { animation: gameSlideFromLeft  0.26s cubic-bezier(0.2, 0.7, 0.2, 1); }
+/* Clip horizontal overflow during the game-carousel slide so the
+   layout never shifts sideways while animating. */
+#tab-games { overflow: clip; overflow-x: clip; }
+#game-detail {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  transform: translate3d(0, 0, 0);
+}
+/* Game-carousel slide animations (swipe or ribbon tap).
+   Short, GPU-accelerated, small travel distance — no layout shift. */
+#game-detail.slide-from-right {
+  animation: gameSlideFromRight 0.2s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  will-change: transform, opacity;
+}
+#game-detail.slide-from-left {
+  animation: gameSlideFromLeft 0.2s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  will-change: transform, opacity;
+}
 @keyframes gameSlideFromRight {
-  from { opacity: 0.35; transform: translateX(18%); }
-  to   { opacity: 1;    transform: translateX(0); }
+  from { opacity: 0.85; transform: translate3d(6%, 0, 0); }
+  to   { opacity: 1;    transform: translate3d(0, 0, 0); }
 }
 @keyframes gameSlideFromLeft {
-  from { opacity: 0.35; transform: translateX(-18%); }
-  to   { opacity: 1;    transform: translateX(0); }
+  from { opacity: 0.85; transform: translate3d(-6%, 0, 0); }
+  to   { opacity: 1;    transform: translate3d(0, 0, 0); }
 }
 
 .bottom-nav {
@@ -1123,9 +1139,9 @@ function renderRibbon() {
     });
     container.appendChild(btn);
   });
-  // scroll active into view
+  // scroll active into view (instant — the slide animation is the main motion)
   const activeEl = container.querySelector('.ribbon-game.active');
-  if (activeEl && activeEl.scrollIntoView) activeEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+  if (activeEl && activeEl.scrollIntoView) activeEl.scrollIntoView({ behavior: 'auto', block: 'nearest', inline: 'center' });
 }
 
 function chipHtml(gameIdx, half, key, player, extraClass) {
