@@ -656,9 +656,14 @@ button { border: none; background: none; color: inherit; cursor: pointer; }
               inset 0 -3px 0 var(--accent);
 }
 
-/* Focus pane — detailed breakdown for the tapped/worst-off player */
-.focus-pane {
+/* Focus pane — stacks one card per highlighted player (comparison mode).
+   When nothing is highlighted, falls back to a single worst-off card. */
+#minutes-focus {
   margin-top: 16px;
+  display: flex; flex-direction: column; gap: 12px;
+}
+#minutes-focus:empty { display: none; }
+.focus-card {
   padding: 14px;
   background: linear-gradient(180deg, rgba(30,41,59,0.92), rgba(15,23,42,0.95));
   border: 1px solid rgba(71,85,105,0.5);
@@ -928,7 +933,7 @@ input[type="checkbox"] { accent-color: var(--success); cursor: pointer; }
   <section id="tab-minutes" class="tab-panel">
     <h2 class="section-title">Player minutes <span class="count" id="minutes-count"></span></h2>
     <div id="minutes-cards" class="cards-list"></div>
-    <div id="minutes-focus" class="focus-pane"></div>
+    <div id="minutes-focus"></div>
   </section>
 
   <!-- Plans tab -->
@@ -1023,7 +1028,6 @@ let activeGame = 0;          // which game the ribbon is focused on
 let activeTab = 'games';     // 'games' | 'minutes' | 'plans'
 const highlightedPlayers = new Set();
 let tapSelected = null;      // { game, half, key }
-let minutesFocusPlayer = null;  // which player's breakdown is shown below the chip grid
 
 // Undo/redo history
 const history = [];
@@ -1441,7 +1445,7 @@ function renderGameDetail() {
   });
 }
 
-/* ─── Minutes tab — quick-scan chip grid + focus pane ─── */
+/* ─── Minutes tab — quick-scan chip grid + multi-player focus stack ─── */
 function renderMinutesTab() {
   const total = PLAYERS.length;
   const activeGames = included.filter(Boolean).length;
@@ -1455,12 +1459,18 @@ function renderMinutesTab() {
     return a.localeCompare(b);
   });
 
-  // Resolve focus: explicit pick → any highlighted player → worst-off (first in sort order)
-  if (!minutesFocusPlayer || !PLAYERS.includes(minutesFocusPlayer)) {
-    const hl = [...highlightedPlayers].find(p => PLAYERS.includes(p));
-    minutesFocusPlayer = hl || sorted[0];
-  }
-  const focused = minutesFocusPlayer;
+  // Which players to show in the focus stack:
+  //  - any currently highlighted players (comparison mode), OR
+  //  - worst-off player as the default when nothing is selected.
+  const highlighted = [...highlightedPlayers]
+    .filter(p => PLAYERS.includes(p))
+    .sort((a, b) => {
+      const d = playerTotalSec(a) - playerTotalSec(b);
+      if (d !== 0) return d;
+      return a.localeCompare(b);
+    });
+  const focusPlayers = highlighted.length > 0 ? highlighted : [sorted[0]];
+  const focusSet = new Set(focusPlayers);
 
   const anyHi = anyHighlightActive();
   list.innerHTML = sorted.map(p => {
@@ -1470,12 +1480,12 @@ function renderMinutesTab() {
     const isPrio = PRIORITY.has(p);
     const hl = isHighlighted(p);
     const dim = anyHi && !hl;
-    const isFocused = p === focused;
+    const isFocused = focusSet.has(p);
     const cls = 'pt-chip' +
       (isPrio ? ' prio' : '') +
       (hl ? ' highlighted' : '') +
       (dim && !isFocused ? ' any-highlighted' : '') +
-      (isFocused ? ' focused' : '');
+      (isFocused && !hl ? ' focused' : ''); // only decorate focus when not already highlighted
     return '<button class="' + cls + '" ' +
       'data-player="' + p.replace(/"/g, '&quot;') + '" ' +
       'style="--pt-bg:' + c.bg + ';--pt-fg:' + c.fg + '">' +
@@ -1487,20 +1497,15 @@ function renderMinutesTab() {
   list.querySelectorAll('.pt-chip').forEach(chip => {
     chip.addEventListener('click', () => {
       const p = chip.dataset.player;
-      // Tap toggles highlight (so a second tap deselects). Focus always
-      // follows the last tapped chip so the pane below keeps showing it.
       toggleHighlight(p);
-      minutesFocusPlayer = p;
       renderMinutesTab();
     });
   });
 
-  renderMinutesFocus(focused, activeGames);
+  renderMinutesFocus(focusPlayers, activeGames, highlighted.length > 0);
 }
 
-function renderMinutesFocus(focused, activeGames) {
-  const pane = document.getElementById('minutes-focus');
-  if (!pane) return;
+function renderFocusCard(focused, activeGames) {
   const totalSec = playerTotalSec(focused);
   const totalMin = Math.round(totalSec / 60);
   const r = playerRatio(focused);
@@ -1508,7 +1513,6 @@ function renderMinutesFocus(focused, activeGames) {
   const barW = r !== null ? Math.min(100, Math.max(0, Math.round(r * 80))) : 0;
   const c = ratioColors(r);
   const isPrio = PRIORITY.has(focused);
-  const isHl = isHighlighted(focused);
   const expected = activeGames ? (12000 * activeGames / 11) : 0;
   const deltaMin = expected ? Math.round((totalSec - expected) / 60) : 0;
   const deltaStr = expected
@@ -1524,7 +1528,7 @@ function renderMinutesFocus(focused, activeGames) {
     else if (sec === 750) cls += ' half';
     else cls += ' zero';
     const mins = Math.round(sec / 60);
-    const posText = posInfo.text || '\u2014'; // em-dash for bench-only games
+    const posText = posInfo.text || '\u2014';
     return '<div class="' + cls + '">' +
       '<span class="fg-label">G' + (i + 1) + '</span>' +
       '<span class="fg-pos">' + posText + '</span>' +
@@ -1532,7 +1536,7 @@ function renderMinutesFocus(focused, activeGames) {
     '</div>';
   }).join('');
 
-  pane.innerHTML =
+  return '<div class="focus-card" data-player="' + focused.replace(/"/g, '&quot;') + '">' +
     '<div class="focus-head">' +
       '<div class="focus-name">' + focused + (isPrio ? ' <span class="focus-star">★</span>' : '') + '</div>' +
       '<div class="focus-total">' + totalMin + "'" + '</div>' +
@@ -1542,19 +1546,20 @@ function renderMinutesFocus(focused, activeGames) {
       '<div class="focus-bar-label">' + (r !== null ? pct + '% of fair share · ' + deltaStr : 'no games counted') + '</div>' +
     '</div>' +
     '<div class="focus-games">' + gamesHtml + '</div>' +
-    '<div class="focus-actions">' +
-      '<button class="btn" id="focus-track">' + (isHl ? 'Stop tracking' : 'Track across games') + '</button>' +
-      '<button class="btn" id="focus-jump">Jump to Games</button>' +
-    '</div>';
+  '</div>';
+}
 
-  document.getElementById('focus-track').addEventListener('click', () => {
-    toggleHighlight(focused);
-    renderActiveTab();
-  });
-  document.getElementById('focus-jump').addEventListener('click', () => {
-    if (!isHighlighted(focused)) toggleHighlight(focused);
-    setTab('games');
-  });
+function renderMinutesFocus(players, activeGames, hasSelection) {
+  const pane = document.getElementById('minutes-focus');
+  if (!pane) return;
+  const cardsHtml = players.map(p => renderFocusCard(p, activeGames)).join('');
+  const footerHtml = hasSelection
+    ? '<div class="focus-actions"><button class="btn" id="focus-jump">View on pitch</button></div>'
+    : '';
+  pane.innerHTML = cardsHtml + footerHtml;
+
+  const jump = document.getElementById('focus-jump');
+  if (jump) jump.addEventListener('click', () => setTab('games'));
 }
 
 /* ─── Plans tab ─── */
