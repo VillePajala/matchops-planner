@@ -347,55 +347,17 @@ button { border: none; background: none; color: inherit; cursor: pointer; }
 
 .pitch {
   display: grid; grid-template-rows: repeat(6, auto); grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  background:
-    repeating-linear-gradient(90deg, rgba(255,255,255,0.025) 0 34px, transparent 34px 68px),
-    radial-gradient(at 50% 30%, rgba(255,255,255,0.09), transparent 60%),
-    linear-gradient(180deg, #166534 0%, #14532d 60%, #0f3820 100%);
-  padding: 18px 12px 16px;
-  border-radius: 10px;
-  box-shadow:
-    inset 0 0 0 1px rgba(255,255,255,0.06),
-    inset 0 6px 20px rgba(0,0,0,0.45),
-    0 2px 8px rgba(0,0,0,0.25);
-  position: relative;
-  overflow: hidden;
-  margin-bottom: 12px;
-}
-.pitch > * { position: relative; z-index: 1; }
-.pitch::before {
-  /* outer boundary line — crisper chalk-white */
-  content: ''; position: absolute; inset: 6px;
-  border: 1.5px solid rgba(255,255,255,0.38);
-  border-radius: 6px;
-  pointer-events: none;
-}
-.pitch::after {
-  /* center line + center circle as a combined sprite — crisper chalk */
-  content: ''; position: absolute; left: 7px; right: 7px; top: 50%;
-  height: 68px; transform: translateY(-50%);
-  background:
-    radial-gradient(circle at 50% 50%,
-      transparent 0 32px,
-      rgba(255,255,255,0.38) 32px 33.5px,
-      transparent 33.5px),
-    linear-gradient(to bottom,
-      transparent calc(50% - 0.75px),
-      rgba(255,255,255,0.38) calc(50% - 0.75px),
-      rgba(255,255,255,0.38) calc(50% + 0.75px),
-      transparent calc(50% + 0.75px));
-  pointer-events: none;
+  gap: 6px;
+  background: linear-gradient(to bottom, #4caf50, #388e3c);
+  padding: 8px;
+  border-radius: 4px;
+  margin-bottom: 10px;
 }
 .pos-box {
-  background: rgba(15,23,42,0.55);
-  border: 1px solid rgba(148,163,184,0.15);
-  border-radius: 6px;
+  background: rgba(0,0,0,0.18);
+  border-radius: 4px;
   padding: 3px 4px 4px;
-  width: 148px;
-  position: relative; z-index: 1;
-  backdrop-filter: blur(3px);
-  -webkit-backdrop-filter: blur(3px);
-  box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+  width: 155px;
 }
 .pos-box.pos-st  { grid-row: 1; grid-column: 1 / 3; justify-self: center; }
 .pos-box.pos-cam { grid-row: 2; grid-column: 1 / 3; justify-self: center; }
@@ -407,97 +369,75 @@ button { border: none; background: none; color: inherit; cursor: pointer; }
 .pos-box.pos-gk  { grid-row: 6; grid-column: 1 / 3; justify-self: center; }
 
 .pos-label {
-  font-size: 9px; font-weight: 700;
-  color: rgba(251,191,36,0.78);
-  letter-spacing: 1.4px; text-transform: uppercase;
-  text-align: center; margin-bottom: 3px;
-  font-family: 'Rajdhani', system-ui, sans-serif;
+  font-size: 8px; font-weight: 700;
+  color: white;
+  letter-spacing: 0.4px; text-transform: uppercase;
+  text-align: center; margin-bottom: 2px;
 }
 .pos-spacer { display: none; }
 .pos-name { display: inline; }
 
-.chip-row { display: flex; gap: 3px; }
+.chip-row { display: flex; gap: 2px; }
 
-/* ─── Classic team-sheet chip: small, solid color-coded, minimal ornament ─── */
+/* ─── MatchOps planner chip: simple, clear, effective ─── */
 .slot {
-  padding: 4px 5px 8px;
-  font-size: 12px; font-weight: 600;
+  padding: 4px 3px 9px;
+  font-size: 12px; font-weight: 500;
   text-align: center; user-select: none;
   border-radius: 3px;
-  min-height: 30px; line-height: 1.15;
+  min-height: 28px; line-height: 1.2;
   flex: 1; min-width: 0;
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  display: flex; align-items: center; justify-content: center;
   overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
   position: relative;
   cursor: grab;
-  font-family: 'Rajdhani', system-ui, sans-serif;
-  letter-spacing: 0.3px;
-  border: 1px solid transparent;
-  box-shadow: 0 1px 0 rgba(0,0,0,0.3);
-  transition: transform 0.1s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+  background: white;
+  color: #333;
+  border: 1.5px solid #ccc;
+  transition: transform 0.1s, border-color 0.15s;
 }
-/* H1 — bone cream (cool off-white) */
-.slot[data-half="h1"] {
-  background: #e5e1d3;
-  color: #1e293b;
-  border-color: #8a8576;
-}
-/* H2 — honey amber */
 .slot[data-half="h2"] {
-  background: #edb84b;
-  color: #3a240a;
-  border-color: #9a6a10;
+  background: #fff3cd;
+  border-color: #ffc107;
+  color: #333;
 }
-/* Full-game — deep navy (captain / 90 minutes) */
 .chip-row.full-game .slot[data-half="h1"] {
-  background: #1e3a5f;
-  color: #f1ece0;
-  border-color: #0a1e30;
-  font-weight: 700;
-  letter-spacing: 0.5px;
+  background: #d4edda;
+  border-color: #28a745;
+  color: #155724;
+  font-weight: 600;
   flex: 1;
 }
 .chip-row.full-game .slot[data-half="h2"] { display: none; }
 
 .slot:active { cursor: grabbing; transform: scale(0.96); }
-.slot.drag-over {
-  border-color: var(--success) !important;
-  box-shadow: 0 0 0 2px rgba(34,197,94,0.45), 0 1px 0 rgba(0,0,0,0.3) !important;
-}
+.slot.drag-over { border-color: #2d5; background: #c8e6c9; }
 .slot.tap-selected {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
   z-index: 2;
 }
 .slot.highlighted {
-  outline: 2px solid #ea580c;
-  outline-offset: 1px;
+  outline: 3px solid #f57c00;
+  outline-offset: 2px;
   z-index: 1;
 }
-.slot:not(.highlighted).any-highlighted { opacity: 0.4; filter: saturate(0.6); }
+.slot:not(.highlighted).any-highlighted { opacity: 0.35; }
 
-/* Warning states */
 .slot.benched-both {
-  background: #b91c1c !important;
-  color: #fee2e2 !important;
-  border-color: #7f1d1d !important;
+  background: #ffcdd2 !important;
+  border-color: #c62828 !important;
+  color: #b71c1c !important;
   font-weight: 700;
+  box-shadow: 0 0 0 1px #c62828 inset;
 }
-/* plays-both: small red dot top-right */
-.slot.plays-both::after {
-  content: ''; position: absolute;
-  top: 2px; right: 2px;
-  width: 5px; height: 5px; border-radius: 50%;
-  background: #dc2626;
-  box-shadow: 0 0 0 1px rgba(255,255,255,0.7);
-  z-index: 2;
-}
+.slot.plays-both { box-shadow: inset 0 0 0 2px #c62828; }
 
-/* per-chip minute bar — tight at the bottom, color-matched fills */
+/* per-chip minute bar — thin, unobtrusive */
 .chip-min-bar {
-  position: absolute; bottom: 1.5px; left: 3px; right: 3px;
+  position: absolute; bottom: 2px; left: 3px; right: 3px;
   height: 2px; border-radius: 1px;
-  background: rgba(0,0,0,0.18);
+  background: rgba(0,0,0,0.12);
   overflow: hidden;
   z-index: 1;
 }
@@ -506,8 +446,6 @@ button { border: none; background: none; color: inherit; cursor: pointer; }
   background: hsl(var(--chip-hue, 60), 65%, 40%);
   width: var(--chip-ratio, 0%);
 }
-.chip-row.full-game .chip-min-bar { background: rgba(255,255,255,0.15); }
-.chip-row.full-game .chip-min-fill { background: hsl(var(--chip-hue, 60), 75%, 60%); }
 
 /* Bench drawer */
 .bench-drawer-toggle {
@@ -540,21 +478,18 @@ button { border: none; background: none; color: inherit; cursor: pointer; }
   font-family: 'Rajdhani', system-ui, sans-serif;
 }
 .bench-row .chip-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
-/* Bench chips — muted/desaturated versions of the field colors.
-   Same coding (bone/amber), just dimmer to read as "in reserve". */
+/* Bench chips — light variants of the same palette (MatchOps planner) */
 .bench-row .slot[data-half="h1"] {
-  background: #857f6d;     /* muted bone */
-  color: #f5f1e3;
-  border-color: #5a5548;
-  opacity: 0.9;
+  background: #e8e8e8;
+  border-color: #bbb;
+  color: #333;
 }
 .bench-row .slot[data-half="h2"] {
-  background: #8a6314;     /* muted amber */
-  color: #fde9b8;
-  border-color: #5c4108;
-  opacity: 0.9;
+  background: #ffecb3;
+  border-color: #d4a017;
+  color: #333;
 }
-.bench-row .chip-min-bar { background: rgba(0,0,0,0.3); }
+.bench-row .chip-min-bar { background: rgba(0,0,0,0.12); }
 
 /* Mini minute bar (per-game strip) */
 .game-min-strip {
@@ -824,12 +759,12 @@ input[type="checkbox"] { accent-color: var(--success); cursor: pointer; }
 
 /* ══════════════════ Narrow screens ══════════════════ */
 @media (max-width: 420px) {
-  .pos-box { width: 136px; padding: 3px 3px 4px; }
-  .pitch { gap: 6px; padding: 14px 8px 12px; }
+  .pos-box { width: 140px; padding: 3px 3px 4px; }
+  .pitch { gap: 5px; padding: 6px; }
   .ribbon-game { min-width: 112px; padding: 9px 32px 9px 12px; }
   .ribbon-game .ribbon-opp { font-size: 13px; }
   .game-min-strip .strip-cell .strip-init { font-size: 7px; }
-  .slot { font-size: 11.5px; padding: 3px 4px 7px; min-height: 28px; }
+  .slot { font-size: 11.5px; padding: 3px 3px 8px; min-height: 26px; }
 }
 
 /* ══════════════════ Wider / tablet+ ══════════════════ */
