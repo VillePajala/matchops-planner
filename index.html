@@ -137,6 +137,39 @@ button { border: none; background: none; color: inherit; cursor: pointer; }
 }
 .plan-name.has-version { display: block; }
 .plan-name:hover { color: var(--text-dim); }
+
+/* Install-as-PWA prompt banner (browser-driven install + iOS hint) */
+.install-banner {
+  display: flex; align-items: center; gap: 10px;
+  margin: 0 0 10px;
+  padding: 10px 12px;
+  background: rgba(251,191,36,0.12);
+  border: 1px solid rgba(251,191,36,0.4);
+  border-radius: 8px;
+  font-size: 13px; font-weight: 600;
+  color: var(--text);
+}
+.install-banner[hidden] { display: none !important; }
+.install-banner .install-text {
+  flex: 1; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.install-banner .install-action {
+  background: var(--accent); color: var(--primary-text-on-amber);
+  border: 1px solid var(--accent);
+  padding: 5px 12px; border-radius: 6px;
+  font-weight: 700; font-size: 12px;
+  letter-spacing: 0.3px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+.install-banner .install-dismiss {
+  background: transparent; color: var(--text-mute);
+  padding: 2px 6px; border: none;
+  font-size: 18px; line-height: 1;
+  flex-shrink: 0;
+  cursor: pointer;
+}
 @media (max-width: 420px) {
   .app-title { font-size: 17px; }
   .save-status { display: none; } /* reclaim space on narrow */
@@ -158,9 +191,16 @@ button { border: none; background: none; color: inherit; cursor: pointer; }
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: translateY(0); }
 }
-/* Clip horizontal overflow during the game-carousel slide so the
-   layout never shifts sideways while animating. */
-#tab-games { overflow: clip; overflow-x: clip; }
+/* Clip horizontal overflow only around the slide-animated panel so
+   the ribbon above keeps room for its box-shadows. */
+.game-detail-wrap {
+  overflow: clip;
+  overflow-x: clip;
+  /* small side padding so shadows / outlines on inner cards aren't
+     shaved by the clip box */
+  padding: 0 2px;
+  margin: 0 -2px;
+}
 #game-detail {
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
@@ -864,11 +904,18 @@ input[type="checkbox"] { accent-color: var(--success); cursor: pointer; }
 <!-- ═══════════════════ Main content ═══════════════════ -->
 <main class="content">
 
+  <!-- PWA install prompt (shown when the browser signals installability) -->
+  <div id="install-banner" class="install-banner" hidden>
+    <span class="install-text"></span>
+    <button type="button" class="install-action" id="install-action"></button>
+    <button type="button" class="install-dismiss" id="install-dismiss" aria-label="Dismiss">×</button>
+  </div>
+
   <!-- Games tab -->
   <section id="tab-games" class="tab-panel active">
     <div id="ribbon" class="ribbon"></div>
     <div id="plan-name" class="plan-name" title="Go to Plans tab"></div>
-    <div id="game-detail"></div>
+    <div class="game-detail-wrap"><div id="game-detail"></div></div>
   </section>
 
   <!-- Minutes tab -->
@@ -1358,6 +1405,7 @@ function renderGameDetail() {
     cell.addEventListener('click', (e) => {
       e.stopPropagation();
       toggleHighlight(p);
+      renderActiveTab();
     });
   });
 
@@ -1423,7 +1471,11 @@ function renderMinutesTab() {
 
   list.querySelectorAll('.pt-chip').forEach(chip => {
     chip.addEventListener('click', () => {
-      minutesFocusPlayer = chip.dataset.player;
+      const p = chip.dataset.player;
+      // Tap toggles highlight (so a second tap deselects). Focus always
+      // follows the last tapped chip so the pane below keeps showing it.
+      toggleHighlight(p);
+      minutesFocusPlayer = p;
       renderMinutesTab();
     });
   });
@@ -1805,6 +1857,68 @@ function setTab(name) {
 }
 document.querySelectorAll('.nav-item').forEach(n => n.addEventListener('click', () => setTab(n.dataset.tab)));
 document.getElementById('plan-name').addEventListener('click', () => setTab('plans'));
+
+/* ══════════════════ PWA install prompt ══════════════════ */
+(function installPrompt() {
+  const INSTALL_DISMISSED_KEY = 'matchops-planner-install-dismissed';
+  let deferred = null;
+
+  function isIos() {
+    const ua = navigator.userAgent || '';
+    return /iPad|iPhone|iPod/.test(ua) || (ua.includes('Mac') && 'ontouchend' in document);
+  }
+  function isStandalone() {
+    return window.matchMedia && window.matchMedia('(display-mode: standalone)').matches
+      || navigator.standalone === true;
+  }
+  function dismissed() {
+    return localStorage.getItem(INSTALL_DISMISSED_KEY) === '1';
+  }
+  function show(text, actionLabel, onAction) {
+    const banner = document.getElementById('install-banner');
+    if (!banner) return;
+    banner.querySelector('.install-text').textContent = text;
+    const btn = banner.querySelector('.install-action');
+    btn.textContent = actionLabel;
+    btn.onclick = onAction;
+    banner.hidden = false;
+  }
+  function hide() {
+    const banner = document.getElementById('install-banner');
+    if (banner) banner.hidden = true;
+  }
+
+  document.getElementById('install-dismiss').addEventListener('click', () => {
+    localStorage.setItem(INSTALL_DISMISSED_KEY, '1');
+    hide();
+  });
+
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferred = e;
+    if (isStandalone() || dismissed()) return;
+    show('Install this planner as an app', 'Install', async () => {
+      if (!deferred) return;
+      deferred.prompt();
+      try { await deferred.userChoice; } catch (_) {}
+      deferred = null;
+      hide();
+    });
+  });
+  window.addEventListener('appinstalled', () => {
+    deferred = null;
+    hide();
+  });
+
+  // iOS fallback: no beforeinstallprompt exists; show a one-shot hint
+  window.addEventListener('load', () => {
+    if (isStandalone() || dismissed() || !isIos()) return;
+    show('Add to Home Screen: Share \u2192 Add to Home Screen', 'Got it', () => {
+      localStorage.setItem(INSTALL_DISMISSED_KEY, '1');
+      hide();
+    });
+  });
+})();
 
 /* ══════════════════ Game carousel — slide animation + swipe ══════════════════ */
 function animateGameSwitch(direction) {
