@@ -703,22 +703,24 @@ button { border: none; background: none; color: inherit; cursor: pointer; }
   margin-bottom: 12px;
 }
 .focus-game {
-  padding: 7px 4px 6px;
+  padding: 6px 3px 6px;
   border-radius: 5px;
   background: rgba(15,23,42,0.7);
   border: 1px solid rgba(71,85,105,0.5);
   text-align: center;
-  display: flex; flex-direction: column; align-items: center; gap: 2px;
-  min-height: 54px;
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  min-height: 66px;
   font-weight: 700;
 }
 .focus-game .fg-label { font-size: 9px; color: var(--text-mute); letter-spacing: 0.4px; }
-.focus-game .fg-mins { font-size: 12px; color: var(--text); font-variant-numeric: tabular-nums; }
-.focus-game .fg-gk {
-  font-size: 7px; font-weight: 700;
-  padding: 1px 4px; border-radius: 2px;
-  background: #1d4ed8; color: white; letter-spacing: 0.3px;
+.focus-game .fg-pos {
+  font-size: 11px; font-weight: 700;
+  color: var(--accent); letter-spacing: 0.4px;
+  font-family: 'Rajdhani', system-ui, sans-serif;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  max-width: 100%;
 }
+.focus-game .fg-mins { font-size: 12px; color: var(--text); font-variant-numeric: tabular-nums; }
 .focus-game.full   { background: rgba(34,197,94,0.18);  border-color: rgba(34,197,94,0.5);  }
 .focus-game.full  .fg-mins { color: #86efac; }
 .focus-game.half   { background: rgba(251,191,36,0.14); border-color: rgba(251,191,36,0.45); }
@@ -1131,6 +1133,15 @@ function playerMinsPerGame(player, gameIdx) {
   for (const half of ['h1','h2']) for (const pos of POSITIONS) if (g[half][pos] === player) { secs += HALF_MIN; break; }
   return secs;
 }
+function playerGamePositions(player, gameIdx) {
+  const g = state[gameIdx];
+  const h1 = POSITIONS.find(p => g.h1[p] === player) || null;
+  const h2 = POSITIONS.find(p => g.h2[p] === player) || null;
+  if (!h1 && !h2) return { text: null };       // bench both halves
+  if (h1 && h2 && h1 === h2) return { text: h1 }; // full at one position
+  if (h1 && h2) return { text: h1 + '/' + h2 };   // plays-both: two positions
+  return { text: (h1 || h2) + '\u00b7' + (h1 ? '1' : '2') }; // half only
+}
 function playerGKInGame(player, gameIdx) {
   const g = state[gameIdx];
   const h1 = g.h1.GK === player, h2 = g.h2.GK === player;
@@ -1502,18 +1513,18 @@ function renderMinutesFocus(focused, activeGames) {
 
   const gamesHtml = [0, 1, 2, 3, 4].map(i => {
     const sec = playerMinsPerGame(focused, i);
-    const gk = playerGKInGame(focused, i);
+    const posInfo = playerGamePositions(focused, i);
     let cls = 'focus-game';
     if (!included[i]) cls += ' excluded';
     if (sec === 1500) cls += ' full';
     else if (sec === 750) cls += ' half';
     else cls += ' zero';
-    const gkBadge = gk ? '<span class="fg-gk">' + (gk === 'full' ? 'GK' : (gk === 'h1' ? 'GK·1' : 'GK·2')) + '</span>' : '';
     const mins = Math.round(sec / 60);
+    const posText = posInfo.text || '\u2014'; // em-dash for bench-only games
     return '<div class="' + cls + '">' +
       '<span class="fg-label">G' + (i + 1) + '</span>' +
+      '<span class="fg-pos">' + posText + '</span>' +
       '<span class="fg-mins">' + mins + "'" + '</span>' +
-      gkBadge +
     '</div>';
   }).join('');
 
