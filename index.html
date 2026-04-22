@@ -1645,6 +1645,32 @@ function setTab(name) {
 document.querySelectorAll('.nav-item').forEach(n => n.addEventListener('click', () => setTab(n.dataset.tab)));
 document.getElementById('plan-name').addEventListener('click', () => setTab('plans'));
 
+/* ══════════════════ Swipe carousel (games tab) ══════════════════ */
+(function attachSwipeCarousel() {
+  const host = document.getElementById('game-detail');
+  if (!host) return;
+  let startX = 0, startY = 0, startT = 0, tracking = false;
+  host.addEventListener('touchstart', (e) => {
+    if (e.touches.length !== 1) { tracking = false; return; }
+    const t = e.touches[0];
+    startX = t.clientX; startY = t.clientY; startT = Date.now();
+    tracking = true;
+  }, { passive: true });
+  host.addEventListener('touchend', (e) => {
+    if (!tracking) return;
+    tracking = false;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - startX;
+    const dy = t.clientY - startY;
+    const dt = Date.now() - startT;
+    // horizontal intent: big X, comparatively small Y, not too slow
+    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.4 && dt < 700) {
+      if (dx < 0 && activeGame < SCHEDULE.length - 1) { activeGame++; renderGamesTab(); }
+      else if (dx > 0 && activeGame > 0)              { activeGame--; renderGamesTab(); }
+    }
+  }, { passive: true });
+})();
+
 /* ══════════════════ Service worker ══════════════════ */
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
