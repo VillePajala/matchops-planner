@@ -922,6 +922,13 @@ input[type="checkbox"] { accent-color: var(--success); cursor: pointer; }
     <button type="button" class="install-dismiss" id="install-dismiss" aria-label="Dismiss">×</button>
   </div>
 
+  <!-- State-recovery banner (shown when saved state has load issues or unknown player refs) -->
+  <div id="state-banner" class="install-banner" hidden>
+    <span class="install-text"></span>
+    <button type="button" class="install-action" id="state-banner-action" hidden></button>
+    <button type="button" class="install-dismiss" id="state-banner-dismiss" aria-label="Dismiss">×</button>
+  </div>
+
   <!-- Games tab -->
   <section id="tab-games" class="tab-panel active">
     <div id="ribbon" class="ribbon"></div>
@@ -987,11 +994,33 @@ input[type="checkbox"] { accent-color: var(--success); cursor: pointer; }
 'use strict';
 
 /* ══════════════════ Constants + seed ══════════════════ */
-const PLAYERS = ['Verne','Petja','Jasper','Niilo H.','Jooa','Tiitus','Mikhail','Tomas','Alexandra','Onni','Roope'];
+const DEFAULT_PLAYERS = ['Verne','Petja','Jasper','Niilo H.','Jooa','Tiitus','Mikhail','Tomas','Alexandra','Onni','Roope'];
+const DEFAULT_PRIORITY = ['Onni','Jasper','Alexandra'];
+const ROSTER_KEY = 'matchops-planner-roster-v1';
 const POSITIONS = ['GK','LB','RB','CDM','LM','RM','CAM','ST'];
 const BENCH_KEYS = ['bench0','bench1','bench2'];
-const PRIORITY = new Set(['Onni','Jasper','Alexandra']);
 const HALF_MIN = 750; // seconds per half
+
+const _loadedRoster = (() => {
+  try {
+    const raw = localStorage.getItem(ROSTER_KEY);
+    if (raw) {
+      const p = JSON.parse(raw);
+      if (p && Array.isArray(p.players)
+          && p.players.length === DEFAULT_PLAYERS.length
+          && p.players.every(x => typeof x === 'string' && x.trim().length > 0)) {
+        const prio = Array.isArray(p.priority) ? p.priority.filter(x => typeof x === 'string') : DEFAULT_PRIORITY.slice();
+        return { players: p.players, priority: prio };
+      }
+    }
+  } catch (_) {}
+  return { players: DEFAULT_PLAYERS.slice(), priority: DEFAULT_PRIORITY.slice() };
+})();
+let PLAYERS = _loadedRoster.players;
+let PRIORITY = new Set(_loadedRoster.priority);
+function saveRoster() {
+  try { localStorage.setItem(ROSTER_KEY, JSON.stringify({ players: PLAYERS, priority: Array.from(PRIORITY) })); } catch (_) {}
+}
 
 const SCHEDULE = [
   { time: '09:30', field: 'TN1', opp: 'FC Lahti' },
@@ -1055,22 +1084,24 @@ function redo() { if (historyIndex < history.length - 1) { historyIndex++; apply
 pushHistory(); // initial state
 
 /* ══════════════════ Persistence ══════════════════ */
+let loadWarning = null; // Surfaced once on first refreshStateBanner()
 function loadAll() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const p = JSON.parse(raw);
-      if (p && validateGamesShape(p.games)) {
+      if (p && hasValidShape(p.games)) {
         return {
           games: p.games,
           included: Array.isArray(p.included) ? p.included.slice(0,5).concat(DEFAULT_INCLUDED.slice(p.included.length)) : DEFAULT_INCLUDED.slice(),
           currentVersionName: typeof p.currentVersionName === 'string' ? p.currentVersionName : null,
         };
       }
-      // Stored payload exists but failed validation — log for forensic visibility.
-      try { console.warn('matchops-planner: stored state failed validation, falling back to seed'); } catch (_) {}
+      loadWarning = { message: 'Saved plan has an unrecognised shape — reverted to default. Import a backup (Plans → Backup) to recover.' };
+      try { console.warn('matchops-planner: stored state failed structural validation, falling back to seed'); } catch (_) {}
     }
   } catch (e) {
+    loadWarning = { message: 'Could not read saved plan (' + e.message + ') — reverted to default.' };
     try { console.warn('matchops-planner: stored state parse error, falling back to seed', e); } catch (_) {}
   }
   return { games: JSON.parse(JSON.stringify(SEED)), included: DEFAULT_INCLUDED.slice(), currentVersionName: null };
@@ -1131,7 +1162,75 @@ function applyVersion(name) {
   while (included.length < 5) included.push(true);
   currentVersionName = name;
   highlightedPlayers.clear();
-  saveAll(); pushHistory(); renderActiveTab();
+  saveAll(); pushHistory(); renderActiveTab(); refreshStateBanner();
+}
+function revertToSaved() {
+  if (!currentVersionName) return;
+  const v = loadVersions()[currentVersionName];
+  if (!v) return;
+  if (!confirm('Discard unsaved edits and revert to saved "' + currentVersionName + '"?')) return;
+  state = JSON.parse(JSON.stringify(v.games));
+  included = (v.included || DEFAULT_INCLUDED).slice(0,5);
+  while (included.length < 5) included.push(true);
+  saveAll(); pushHistory(); renderActiveTab(); refreshStateBanner();
+}
+function isWorkingCopyDirty() {
+  if (!currentVersionName) return false;
+  const v = loadVersions()[currentVersionName];
+  if (!v) return false;
+  const savedIncluded = Array.isArray(v.included) ? v.included : DEFAULT_INCLUDED;
+  return JSON.stringify(v.games) !== JSON.stringify(state)
+      || JSON.stringify(savedIncluded) !== JSON.stringify(included);
+}
+
+/* ══════════════════ Roster edits ══════════════════ */
+function rewriteNameInGames(games, oldName, newName) {
+  for (const g of games) {
+    if (!g) continue;
+    for (const half of ['h1','h2']) {
+      const h = g[half]; if (!h) continue;
+      for (const k of POSITIONS.concat(BENCH_KEYS)) {
+        if (h[k] === oldName) h[k] = newName;
+      }
+    }
+  }
+}
+function applyNameRewrite(oldName, newName) {
+  rewriteNameInGames(state, oldName, newName);
+  const versions = loadVersions();
+  let touched = false;
+  for (const n of Object.keys(versions)) {
+    const v = versions[n];
+    if (v && Array.isArray(v.games)) { rewriteNameInGames(v.games, oldName, newName); touched = true; }
+  }
+  if (touched) saveVersionsMap(versions);
+  if (highlightedPlayers.has(oldName)) {
+    highlightedPlayers.delete(oldName);
+    highlightedPlayers.add(newName);
+  }
+}
+function renamePlayer(oldName, newName) {
+  oldName = String(oldName || '').trim();
+  newName = String(newName || '').trim();
+  if (!oldName || !newName || oldName === newName) return false;
+  if (!PLAYERS.includes(oldName)) { alert('"' + oldName + '" is not in the roster.'); return false; }
+  if (PLAYERS.includes(newName)) { alert('"' + newName + '" is already a roster entry. Pick a different name.'); return false; }
+  PLAYERS = PLAYERS.map(p => p === oldName ? newName : p);
+  if (PRIORITY.has(oldName)) { PRIORITY.delete(oldName); PRIORITY.add(newName); }
+  rebuildValidPlayersSet();
+  saveRoster();
+  applyNameRewrite(oldName, newName);
+  saveAll(); pushHistory(); renderActiveTab(); refreshStateBanner();
+  return true;
+}
+function resolveUnknown(unknownName, targetName) {
+  unknownName = String(unknownName || '').trim();
+  targetName = String(targetName || '').trim();
+  if (!unknownName || !targetName) return false;
+  if (!PLAYERS.includes(targetName)) { alert('"' + targetName + '" is not in the roster. Pick an existing roster entry.'); return false; }
+  applyNameRewrite(unknownName, targetName);
+  saveAll(); pushHistory(); renderActiveTab(); refreshStateBanner();
+  return true;
 }
 
 /* ══════════════════ Helpers ══════════════════ */
@@ -1144,11 +1243,12 @@ function escapeHtml(s) {
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
 }
-const VALID_PLAYERS_SET = new Set(PLAYERS);
-function validateGamesShape(games) {
-  // Each game must have h1 + h2 with every field/bench slot mapping to an
-  // empty string or a known PLAYERS entry. Rejects imports that could
-  // inject unknown / crafted player strings.
+let VALID_PLAYERS_SET = new Set(PLAYERS);
+function rebuildValidPlayersSet() { VALID_PLAYERS_SET = new Set(PLAYERS); }
+function hasValidShape(games) {
+  // Structural check only: 5 games, each with h1/h2 objects whose slots are
+  // strings. Does NOT require slot values to match the current roster — an
+  // unknown name is recoverable via Roster → Rename / Resolve.
   if (!Array.isArray(games) || games.length !== 5) return false;
   for (const g of games) {
     if (!g || typeof g !== 'object') return false;
@@ -1156,13 +1256,29 @@ function validateGamesShape(games) {
       const h = g[half];
       if (!h || typeof h !== 'object') return false;
       for (const k of POSITIONS.concat(BENCH_KEYS)) {
-        const v = h[k];
-        if (typeof v !== 'string') return false;
-        if (v !== '' && !VALID_PLAYERS_SET.has(v)) return false;
+        if (typeof h[k] !== 'string') return false;
       }
     }
   }
   return true;
+}
+function collectUnknownPlayers(games) {
+  if (!hasValidShape(games)) return [];
+  const set = new Set();
+  for (const g of games) {
+    for (const half of ['h1', 'h2']) {
+      for (const k of POSITIONS.concat(BENCH_KEYS)) {
+        const v = g[half][k];
+        if (v !== '' && !VALID_PLAYERS_SET.has(v)) set.add(v);
+      }
+    }
+  }
+  return Array.from(set);
+}
+function validateGamesShape(games) {
+  // Strict: structure + roster membership. Used at trust boundaries where
+  // unknown strings must never enter state (e.g. URL-hash import).
+  return hasValidShape(games) && collectUnknownPlayers(games).length === 0;
 }
 function findKeyInHalf(g, half, player, excludeKey) {
   for (const p of POSITIONS) if (p !== excludeKey && g[half][p] === player) return p;
@@ -1294,11 +1410,13 @@ function updateVersionBadge() {
   const b = document.getElementById('plan-name');
   if (!b) return;
   if (currentVersionName) {
-    b.textContent = currentVersionName;
+    const dirty = isWorkingCopyDirty();
+    b.textContent = currentVersionName + (dirty ? ' • unsaved' : '');
     b.classList.add('has-version');
+    b.classList.toggle('is-dirty', dirty);
   } else {
     b.textContent = '';
-    b.classList.remove('has-version');
+    b.classList.remove('has-version', 'is-dirty');
   }
 }
 
@@ -1619,12 +1737,17 @@ function renderPlans() {
   html +=   '<h4>Current plan</h4>';
   if (currentVersionName) {
     const verEsc = escapeHtml(currentVersionName);
+    const dirty = isWorkingCopyDirty();
+    const statusLine = dirty
+      ? 'Unsaved edits — click "Save changes" to update "' + verEsc + '"'
+      : 'Matches saved version';
     html +=  '<div class="current-plan-row">' +
-               '<span class="icon">📂</span>' +
-               '<div class="meta"><div class="name">' + verEsc + '</div>' +
-                 '<div class="ts">Working copy — unsaved edits are in the auto-save slot</div></div>' +
+               '<span class="icon">' + (dirty ? '✏️' : '📂') + '</span>' +
+               '<div class="meta"><div class="name">' + verEsc + (dirty ? ' • unsaved' : '') + '</div>' +
+                 '<div class="ts">' + statusLine + '</div></div>' +
              '</div>';
-    html +=  '<button class="btn primary" id="plan-save-changes">Save changes to "' + verEsc + '"</button>';
+    html +=  '<button class="btn ' + (dirty ? 'primary' : '') + '" id="plan-save-changes"' + (dirty ? '' : ' disabled') + '>Save changes to "' + verEsc + '"</button>';
+    if (dirty) html += '<button class="btn" id="plan-revert">Discard edits, revert to saved</button>';
     html +=  '<button class="btn" id="plan-save-as">Save as new version…</button>';
   } else {
     html +=  '<div class="current-plan-row">' +
@@ -1661,6 +1784,34 @@ function renderPlans() {
   }
   html += '</div>';
 
+  // Roster
+  html += '<div class="plans-section">';
+  html +=   '<h4>Roster</h4>';
+  html +=   '<div class="version-list">';
+  PLAYERS.forEach(p => {
+    const pEsc = escapeHtml(p);
+    html += '<div class="version-row" data-roster-player="' + encodeURIComponent(p) + '">' +
+      '<span class="vname" title="' + pEsc + '">' + pEsc + '</span>' +
+      '<button class="vbtn" data-action="rename-player" title="Rename" aria-label="Rename ' + pEsc + '">✎</button>' +
+    '</div>';
+  });
+  html +=   '</div>';
+  const _unknownRefs = collectUnknownPlayers(state);
+  if (_unknownRefs.length) {
+    html += '<h4 style="margin-top:12px">Unknown references</h4>';
+    html += '<div class="version-empty" style="margin-bottom:8px">Used in your plan but not in the roster — resolve each to a roster player.</div>';
+    html += '<div class="version-list">';
+    _unknownRefs.forEach(u => {
+      const uEsc = escapeHtml(u);
+      html += '<div class="version-row" data-unknown-player="' + encodeURIComponent(u) + '">' +
+        '<span class="vname" title="' + uEsc + '">⚠ ' + uEsc + '</span>' +
+        '<button class="vbtn" data-action="resolve-unknown" title="Resolve" aria-label="Resolve ' + uEsc + '">→</button>' +
+      '</div>';
+    });
+    html += '</div>';
+  }
+  html += '</div>';
+
   // Backup
   html += '<div class="plans-section">';
   html +=   '<h4>Backup</h4>';
@@ -1681,9 +1832,14 @@ function renderPlans() {
 
   // Handlers
   const bSaveChanges = document.getElementById('plan-save-changes');
-  if (bSaveChanges) bSaveChanges.addEventListener('click', () => {
-    saveVersion(currentVersionName, true); renderPlans();
+  if (bSaveChanges && !bSaveChanges.disabled) bSaveChanges.addEventListener('click', () => {
+    saveVersion(currentVersionName, true);
+    showSaved();
+    updateVersionBadge();
+    renderPlans();
   });
+  const bRevert = document.getElementById('plan-revert');
+  if (bRevert) bRevert.addEventListener('click', revertToSaved);
   document.getElementById('plan-save-as').addEventListener('click', () => {
     const suggested = currentVersionName ? (currentVersionName + ' (copy)') : 'Plan ' + new Date().toLocaleString();
     const input = prompt('Save as:', suggested);
@@ -1691,13 +1847,35 @@ function renderPlans() {
     const n = input.trim(); if (!n) return;
     if (saveVersion(n)) { currentVersionName = n; saveAll(); renderPlans(); }
   });
-  view.querySelectorAll('.version-row').forEach(row => {
+  view.querySelectorAll('.version-row[data-name]').forEach(row => {
     const name = decodeURIComponent(row.dataset.name);
     row.querySelector('[data-action="load"]').addEventListener('click', (e) => { e.stopPropagation(); applyVersion(name); });
     row.querySelector('[data-action="rename"]').addEventListener('click', (e) => { e.stopPropagation(); renameVersion(name); });
     row.querySelector('[data-action="delete"]').addEventListener('click', (e) => { e.stopPropagation(); deleteVersion(name); });
     // Tap the name area → load
     row.querySelector('.vname').addEventListener('click', () => applyVersion(name));
+  });
+  view.querySelectorAll('[data-roster-player]').forEach(row => {
+    const p = decodeURIComponent(row.dataset.rosterPlayer);
+    row.querySelector('[data-action="rename-player"]').addEventListener('click', (e) => {
+      e.stopPropagation();
+      const input = prompt('Rename player "' + p + '" to:', p);
+      if (input === null) return;
+      const n = input.trim();
+      if (!n || n === p) return;
+      renamePlayer(p, n);
+    });
+  });
+  view.querySelectorAll('[data-unknown-player]').forEach(row => {
+    const u = decodeURIComponent(row.dataset.unknownPlayer);
+    row.querySelector('[data-action="resolve-unknown"]').addEventListener('click', (e) => {
+      e.stopPropagation();
+      const input = prompt('Replace "' + u + '" with which roster player?\n\nRoster: ' + PLAYERS.join(', '), '');
+      if (input === null) return;
+      const t = input.trim();
+      if (!t) return;
+      resolveUnknown(u, t);
+    });
   });
   document.getElementById('plan-export').addEventListener('click', exportJson);
   document.getElementById('plan-import').addEventListener('click', () => document.getElementById('import-file').click());
@@ -1736,21 +1914,25 @@ document.getElementById('import-file').addEventListener('change', (e) => {
   reader.onload = (ev) => {
     try {
       const data = JSON.parse(ev.target.result);
-      if (!validateGamesShape(data && data.games)) {
-        alert('Invalid file: game shape or player names not recognised.');
+      if (!hasValidShape(data && data.games)) {
+        alert('Invalid file: game shape not recognised.');
         return;
       }
-      // Filter imported versions to ones that also validate
+      const importUnknowns = collectUnknownPlayers(data.games);
+      // Filter imported versions to ones that structurally validate
       const importedVersions = {};
       if (data.versions && typeof data.versions === 'object') {
         for (const name of Object.keys(data.versions)) {
           const v = data.versions[name];
-          if (v && validateGamesShape(v.games)) importedVersions[name] = v;
+          if (v && hasValidShape(v.games)) importedVersions[name] = v;
         }
       }
       const importedCount = Object.keys(importedVersions).length;
       const hasVer = importedCount > 0;
-      if (!confirm('Replace current plan' + (hasVer ? (' AND import ' + importedCount + ' version(s)?') : '?'))) return;
+      const unknownsPart = importUnknowns.length
+        ? '\n\nImported plan references unknown players: ' + importUnknowns.join(', ') + '. Resolve in Plans → Roster after loading.'
+        : '';
+      if (!confirm('Replace current plan' + (hasVer ? (' AND import ' + importedCount + ' version(s)?') : '?') + unknownsPart)) return;
       state = data.games;
       included = (data.included || DEFAULT_INCLUDED).slice(0,5);
       while (included.length < 5) included.push(true);
@@ -1760,7 +1942,7 @@ document.getElementById('import-file').addEventListener('change', (e) => {
         const merged = Object.assign({}, loadVersions(), importedVersions);
         saveVersionsMap(merged);
       }
-      saveAll(); pushHistory(); renderActiveTab();
+      saveAll(); pushHistory(); renderActiveTab(); refreshStateBanner();
     } catch (err) { alert('Parse error: ' + err.message); }
   };
   reader.readAsText(file); e.target.value = '';
@@ -2058,8 +2240,50 @@ if ('serviceWorker' in navigator) {
   });
 }
 
+/* ══════════════════ State-recovery banner ══════════════════ */
+function showStateBanner(text, actionLabel, onAction) {
+  const banner = document.getElementById('state-banner');
+  if (!banner) return;
+  banner.querySelector('.install-text').textContent = text;
+  const btn = document.getElementById('state-banner-action');
+  if (actionLabel && onAction) {
+    btn.textContent = actionLabel;
+    btn.onclick = onAction;
+    btn.hidden = false;
+  } else {
+    btn.hidden = true;
+  }
+  banner.hidden = false;
+}
+function hideStateBanner() {
+  const banner = document.getElementById('state-banner');
+  if (banner) banner.hidden = true;
+}
+function refreshStateBanner() {
+  const unknowns = collectUnknownPlayers(state);
+  if (unknowns.length) {
+    showStateBanner(
+      'Plan references unknown players: ' + unknowns.join(', ') + '. Open Plans → Roster to resolve.',
+      'Open Roster',
+      () => setTab('plans')
+    );
+    return;
+  }
+  if (loadWarning) {
+    showStateBanner(loadWarning.message, null, null);
+    loadWarning = null;
+    return;
+  }
+  hideStateBanner();
+}
+document.getElementById('state-banner-dismiss').addEventListener('click', () => {
+  loadWarning = null;
+  hideStateBanner();
+});
+
 /* ══════════════════ Init ══════════════════ */
 renderActiveTab();
+refreshStateBanner();
 </script>
 </body>
 </html>
