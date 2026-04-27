@@ -1116,14 +1116,16 @@ input[type="checkbox"] { accent-color: var(--success); cursor: pointer; }
   font-size: 13px;
 }
 .settings-game-row {
-  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) 60px 60px 60px auto;
+  display: grid;
+  grid-template-columns: minmax(60px, 0.8fr) minmax(80px, 1.4fr) minmax(50px, 0.7fr) 86px 76px auto;
   gap: 6px; align-items: center;
   padding: 8px 10px;
   background: rgba(15,23,42,0.5);
   border: 1px solid var(--border-soft);
   border-radius: var(--r-sm);
 }
-.settings-game-row input {
+.settings-game-row input,
+.settings-game-row select {
   padding: 5px 6px;
   background: rgba(15,23,42,0.85);
   color: var(--text);
@@ -1131,6 +1133,13 @@ input[type="checkbox"] { accent-color: var(--success); cursor: pointer; }
   border-radius: var(--r-sm);
   font-size: 12px;
   min-width: 0;
+}
+@media (max-width: 480px) {
+  .settings-game-row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+    grid-auto-flow: row;
+  }
+  .settings-game-row .gr-del { grid-column: 3; grid-row: 1 / span 2; }
 }
 .settings-game-row .gr-num {
   font-size: 10px; font-weight: 700;
@@ -2581,7 +2590,7 @@ function renderPlans() {
     '</div>';
   });
   html +=   '</div>';
-  const _unknownRefs = collectUnknownPlayers(state);
+  const _unknownRefs = collectUnknownPlayers(tournament);
   if (_unknownRefs.length) {
     html += '<h4 style="margin-top:12px">Unknown references</h4>';
     html += '<div class="version-empty" style="margin-bottom:8px">Used in your plan but not in the roster — resolve each to a roster player.</div>';
@@ -2997,12 +3006,19 @@ function renderSettings() {
   html += '<div class="settings-section">';
   html +=   '<h4>Games (' + tournament.games.length + ')</h4>';
   tournament.games.forEach((g, i) => {
+    const periods = (g.halfTimeMin > 0 && g.halfTimeMin < (g.durationMin || 25)) ? 2 : 1;
+    const periodLen = periods === 2
+      ? (g.halfTimeMin || (g.durationMin || 25) / 2)
+      : (g.durationMin || 25);
     html += '<div class="settings-game-row" data-game-row="' + i + '">';
     html +=   '<input type="text" data-f="time" placeholder="Time" value="' + escapeHtml(g.time || '') + '">';
     html +=   '<input type="text" data-f="opponent" placeholder="Opponent" value="' + escapeHtml(g.opponent || '') + '">';
     html +=   '<input type="text" data-f="field" placeholder="Field" value="' + escapeHtml(g.field || '') + '">';
-    html +=   '<input type="number" data-f="durationMin" placeholder="Min" min="1" max="120" value="' + (g.durationMin || 25) + '">';
-    html +=   '<input type="number" data-f="halfTimeMin" placeholder="Half" min="0" max="120" step="0.5" value="' + (g.halfTimeMin != null ? g.halfTimeMin : '') + '">';
+    html +=   '<select data-f="periods" title="Number of periods">' +
+                '<option value="1"' + (periods === 1 ? ' selected' : '') + '>1 period</option>' +
+                '<option value="2"' + (periods === 2 ? ' selected' : '') + '>2 halves</option>' +
+              '</select>';
+    html +=   '<input type="number" data-f="periodLen" placeholder="Period (min)" min="1" max="120" step="0.5" value="' + periodLen + '" title="Length of each period (min)">';
     html +=   '<button class="gr-del" data-del-game="' + i + '" title="Delete game" aria-label="Delete game ' + (i+1) + '">×</button>';
     html += '</div>';
   });
@@ -3058,14 +3074,26 @@ function renderSettings() {
   });
   view.querySelectorAll('.settings-game-row').forEach(row => {
     const idx = parseInt(row.dataset.gameRow, 10);
-    row.querySelectorAll('input[data-f]').forEach(inp => {
+    const applyPeriods = (g) => {
+      const periodsSel = row.querySelector('[data-f="periods"]');
+      const lenInp = row.querySelector('[data-f="periodLen"]');
+      const periods = parseInt(periodsSel.value, 10) === 2 ? 2 : 1;
+      const len = parseFloat(lenInp.value);
+      if (!isFinite(len) || len <= 0) return false;
+      g.durationMin = len * periods;
+      g.halfTimeMin = periods === 2 ? len : 0;
+      // Drop subs that fall outside the new total duration.
+      const totalSec = g.durationMin * 60;
+      g.scheduledSubs = (g.scheduledSubs || []).filter(s => s.timeSec > 0 && s.timeSec < totalSec);
+      return true;
+    };
+    row.querySelectorAll('input[data-f], select[data-f]').forEach(inp => {
       inp.addEventListener('change', () => {
         const g = tournament.games[idx];
         if (!g) return;
         const f = inp.dataset.f;
-        if (f === 'durationMin' || f === 'halfTimeMin') {
-          const v = parseFloat(inp.value);
-          if (isFinite(v) && v >= 0) g[f] = v;
+        if (f === 'periods' || f === 'periodLen') {
+          applyPeriods(g);
         } else {
           g[f] = inp.value.trim();
         }
@@ -3330,7 +3358,7 @@ function hideStateBanner() {
   if (banner) banner.hidden = true;
 }
 function refreshStateBanner() {
-  const unknowns = collectUnknownPlayers(state);
+  const unknowns = collectUnknownPlayers(tournament);
   if (unknowns.length) {
     showStateBanner(
       'Plan references unknown players: ' + unknowns.join(', ') + '. Open Plans → Roster to resolve.',
