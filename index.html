@@ -2081,16 +2081,15 @@ function _segmentPlayer(game, role, startSec) {
   return sub ? (sub.inPlayer || '') : '';
 }
 
-function performSwap(gIdx, srcRole, srcStart, tgtRole, tgtStart) {
+function performSwap(gIdx, srcRole, srcStart, tgtRole, tgtStart, benchPlayerOverride) {
   const g = tournament.games[gIdx];
   if (!g) return;
   const isSrcBench = srcRole === '__BENCH__';
   const isTgtBench = tgtRole === '__BENCH__';
-  if (isSrcBench && isTgtBench) return; // bench↔bench is a no-op
+  if (isSrcBench && isTgtBench) return;
   if (!isSrcBench && !isTgtBench && srcRole === tgtRole && srcStart === tgtStart) return;
 
   if (!isSrcBench && !isTgtBench) {
-    // Field ↔ Field swap. Just swap the two segment players.
     const srcP = _segmentPlayer(g, srcRole, srcStart);
     const tgtP = _segmentPlayer(g, tgtRole, tgtStart);
     if (!srcP && !tgtP) return;
@@ -2100,16 +2099,10 @@ function performSwap(gIdx, srcRole, srcStart, tgtRole, tgtStart) {
     return;
   }
 
-  // Field ↔ Bench: srcSlot is whichever side has a role; tgtSlot has the bench player.
   const fieldRole = isSrcBench ? tgtRole : srcRole;
   const fieldStart = isSrcBench ? tgtStart : srcStart;
-  // For a bench chip, the player identity is encoded in the slot's data-player attr at click time;
-  // the swap engine receives bench chips with their player carried via tapSelected.benchPlayer.
-  const benchPlayer = isSrcBench ? (tapSelected && tapSelected.benchPlayer) : null;
-  // We dispatch this through a separate path; if performSwap is called for bench-↔-field
-  // without the player context we noop. Use addSubAtMinute / removeSub from the bottom sheet.
+  const benchPlayer = benchPlayerOverride || (tapSelected && tapSelected.benchPlayer);
   if (!benchPlayer) return;
-  // Replace the field segment's player with benchPlayer.
   _setSegmentPlayer(g, fieldRole, fieldStart, benchPlayer);
   saveAll(); pushHistory(); renderActiveTab();
 }
@@ -2266,7 +2259,7 @@ function renderGameDetail() {
   // Each row: roles sorted left-to-right by relX. Outfield rows first, GK row last.
   for (const row of rows) {
     html += '<div class="pitch-row">';
-    for (const role of row) {
+    for (const role of row.roles) {
       const segs = getCellSegments(g, role.name);
       const isFull = segs.length === 1;
       html += '<div class="pos-box">';
@@ -2830,12 +2823,7 @@ function onDrop(e) {
   const tgtRole = t.dataset.role;
   const tgtStart = parseInt(t.dataset.start, 10) || 0;
   if (tgtRole === dragSource.role && tgtStart === dragSource.startSec) return;
-  // For bench → field drag, set tapSelected so performSwap can recover the bench player.
-  if (dragSource.role === '__BENCH__') {
-    tapSelected = { game: parseInt(dragSource.game, 10), role: '__BENCH__', startSec: 0, benchPlayer: dragSource.benchPlayer };
-  }
-  performSwap(parseInt(dragSource.game,10), dragSource.role, dragSource.startSec, tgtRole, tgtStart);
-  tapSelected = null;
+  performSwap(parseInt(dragSource.game,10), dragSource.role, dragSource.startSec, tgtRole, tgtStart, dragSource.benchPlayer);
 }
 function onDragEnd(e) {
   e.currentTarget.style.opacity = '';
@@ -2862,7 +2850,7 @@ function onChipClick(e) {
 
   const src = tapSelected;
   tapSelected = null;
-  performSwap(gIdx, src.role, src.startSec, role, startSec);
+  performSwap(gIdx, src.role, src.startSec, role, startSec, src.benchPlayer);
 }
 
 /* ══════════════════ Bottom sheet ══════════════════ */
