@@ -1059,6 +1059,54 @@ input[type="checkbox"] { accent-color: var(--success); cursor: pointer; }
   width: 0; border-left: 1px dashed rgba(255,255,255,0.45);
 }
 
+/* ══════════════════ Settings tools section ══════════════════ */
+.settings-tools-hint {
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--text-mute);
+  font-style: italic;
+}
+
+/* ══════════════════ Minutes-tab warnings strip ══════════════════ */
+.warnings-strip {
+  display: flex; flex-direction: column; gap: 6px;
+  margin-bottom: 12px;
+}
+.warning-chip {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+  padding: 10px 12px;
+  border-radius: var(--r-md);
+  text-align: left;
+  border: 1px solid;
+  font-size: 12px;
+  cursor: pointer;
+  transition: filter 0.15s, transform 0.1s;
+}
+.warning-chip:hover { filter: brightness(1.08); }
+.warning-chip:active { transform: scale(0.98); }
+.warning-chip .warning-label {
+  font-size: 12.5px; font-weight: 700;
+  letter-spacing: 0.2px;
+}
+.warning-chip .warning-detail {
+  font-size: 11px; opacity: 0.85;
+}
+.warning-zero {
+  background: rgba(239,68,68,0.16);
+  border-color: rgba(239,68,68,0.5);
+  color: #fecaca;
+}
+.warning-spread {
+  background: rgba(251,146,60,0.16);
+  border-color: rgba(251,146,60,0.5);
+  color: #fed7aa;
+}
+.warning-gk {
+  background: rgba(56,189,248,0.16);
+  border-color: rgba(56,189,248,0.5);
+  color: #bae6fd;
+}
+
 /* ══════════════════ Bottom sheet inline form ══════════════════ */
 #sheet-body { margin-bottom: 12px; }
 #sheet-body:empty { display: none; }
@@ -1198,14 +1246,27 @@ input[type="checkbox"] { accent-color: var(--success); cursor: pointer; }
   color: var(--accent);
   text-align: center;
 }
-.settings-game-row .gr-del {
+.settings-game-row .gr-actions {
+  display: inline-flex; gap: 4px; align-items: center;
+}
+.settings-game-row .gr-del,
+.settings-game-row .gr-dup {
   width: 26px; height: 26px;
+  border-radius: var(--r-sm);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 14px; font-weight: 700;
+}
+.settings-game-row .gr-del {
   background: rgba(239,68,68,0.12);
   border: 1px solid rgba(239,68,68,0.4);
   color: #fca5a5;
-  border-radius: var(--r-sm);
-  display: inline-flex; align-items: center; justify-content: center;
 }
+.settings-game-row .gr-dup {
+  background: rgba(56,189,248,0.12);
+  border: 1px solid rgba(56,189,248,0.4);
+  color: #7dd3fc;
+}
+.settings-game-row .gr-dup:hover { background: rgba(56,189,248,0.2); }
 
 /* ══════════════════ Narrow screens ══════════════════ */
 @media (max-width: 420px) {
@@ -1262,6 +1323,7 @@ input[type="checkbox"] { accent-color: var(--success); cursor: pointer; }
   <!-- Minutes tab -->
   <section id="tab-minutes" class="tab-panel">
     <h2 class="section-title">Player minutes <span class="count" id="minutes-count"></span></h2>
+    <div id="minutes-warnings"></div>
     <div id="minutes-cards" class="cards-list"></div>
     <div id="minutes-focus"></div>
   </section>
@@ -2553,10 +2615,96 @@ function renderGameDetail() {
 }
 
 /* ─── Minutes tab — quick-scan chip grid + multi-player focus stack ─── */
+/* Compute tournament-level warnings to surface above the player chip grid. */
+function computeMinutesWarnings() {
+  const out = [];
+  // 1. Zero-minute players in any *included* game — surfaces "you forgot Liam in game 3".
+  const zeroByPlayer = new Map(); // player → list of game indices where 0 mins (and game is included)
+  for (let i = 0; i < tournament.games.length; i++) {
+    if (!included[i]) continue;
+    for (const p of PLAYERS) {
+      if (playerSecondsInGame(p, i) === 0) {
+        if (!zeroByPlayer.has(p)) zeroByPlayer.set(p, []);
+        zeroByPlayer.get(p).push(i + 1);
+      }
+    }
+  }
+  if (zeroByPlayer.size > 0) {
+    const players = [...zeroByPlayer.keys()].sort();
+    const summary = players.map(p => p + ' (G' + zeroByPlayer.get(p).join(',') + ')').slice(0, 3).join(', ')
+      + (players.length > 3 ? ` +${players.length - 3} more` : '');
+    out.push({ kind: 'zero', label: players.length + ' player' + (players.length === 1 ? '' : 's') + ' with 0 minutes', detail: summary, players });
+  }
+  // 2. Max-min spread across included games.
+  if (PLAYERS.length > 0 && included.some(Boolean)) {
+    const totals = PLAYERS.map(p => ({ p, sec: playerTotalSec(p) })).sort((a, b) => a.sec - b.sec);
+    const min = totals[0], max = totals[totals.length - 1];
+    const spreadMin = Math.round((max.sec - min.sec) / 60);
+    if (spreadMin > 15) {
+      out.push({
+        kind: 'spread',
+        label: spreadMin + " min spread (" + Math.round(min.sec / 60) + " - " + Math.round(max.sec / 60) + ")",
+        detail: 'Least: ' + min.p + ' · Most: ' + max.p,
+        players: [min.p, max.p],
+      });
+    }
+  }
+  // 3. GK rotation — flag if only one player kept goal across all included games.
+  const keepers = new Set();
+  for (let i = 0; i < tournament.games.length; i++) {
+    if (!included[i]) continue;
+    const g = tournament.games[i];
+    for (const seg of getCellSegments(g, 'GK')) {
+      if (seg.player) keepers.add(seg.player);
+    }
+  }
+  if (keepers.size === 1) {
+    const sole = [...keepers][0];
+    out.push({
+      kind: 'gk',
+      label: 'Only ' + sole + ' plays GK',
+      detail: 'Consider rotating goalkeepers',
+      players: [sole],
+    });
+  }
+  return out;
+}
+function renderMinutesWarnings() {
+  const host = document.getElementById('minutes-warnings');
+  if (!host) return;
+  const warnings = computeMinutesWarnings();
+  if (warnings.length === 0) { host.innerHTML = ''; return; }
+  let html = '<div class="warnings-strip">';
+  warnings.forEach((w, i) => {
+    const cls = 'warning-chip warning-' + w.kind;
+    html += '<button class="' + cls + '" data-warning-idx="' + i + '" title="' + escapeHtml(w.detail) + '">' +
+      '<span class="warning-label">' + escapeHtml(w.label) + '</span>' +
+      '<span class="warning-detail">' + escapeHtml(w.detail) + '</span>' +
+    '</button>';
+  });
+  html += '</div>';
+  host.innerHTML = html;
+  host.querySelectorAll('.warning-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      const idx = parseInt(chip.dataset.warningIdx, 10);
+      const w = warnings[idx];
+      if (!w) return;
+      // Toggle: if already highlighting these exact players, clear; else replace.
+      const targetSet = new Set(w.players);
+      const current = new Set(highlightedPlayers);
+      const sameSet = targetSet.size === current.size && [...targetSet].every(p => current.has(p));
+      highlightedPlayers.clear();
+      if (!sameSet) w.players.forEach(p => highlightedPlayers.add(p));
+      renderMinutesTab();
+    });
+  });
+}
+
 function renderMinutesTab() {
   const total = PLAYERS.length;
   const activeGames = included.filter(Boolean).length;
   document.getElementById('minutes-count').textContent = total + ' players · ' + activeGames + '/' + tournament.games.length + ' games counted';
+  renderMinutesWarnings();
 
   const list = document.getElementById('minutes-cards');
   list.className = 'pt-grid';
@@ -3268,10 +3416,20 @@ function renderSettings() {
                 '<option value="2"' + (periods === 2 ? ' selected' : '') + '>2 halves</option>' +
               '</select>';
     html +=   '<input type="number" data-f="periodLen" placeholder="Period (min)" min="1" max="120" step="0.5" value="' + periodLen + '" title="Length of each period (min)">';
-    html +=   '<button class="gr-del" data-del-game="' + i + '" title="Delete game" aria-label="Delete game ' + (i+1) + '">×</button>';
+    html +=   '<div class="gr-actions">';
+    html +=     '<button class="gr-dup" data-dup-game="' + i + '" title="Duplicate game" aria-label="Duplicate game ' + (i+1) + '">⎘</button>';
+    html +=     '<button class="gr-del" data-del-game="' + i + '" title="Delete game" aria-label="Delete game ' + (i+1) + '">×</button>';
+    html +=   '</div>';
     html += '</div>';
   });
   html +=   '<button class="btn" id="set-add-game">+ Add game</button>';
+  html += '</div>';
+
+  // Tools
+  html += '<div class="settings-section">';
+  html +=   '<h4>Tools</h4>';
+  html +=   '<button class="btn primary" id="set-fairshare" title="Rebuild starting XI + half-time subs across included games to balance minutes">Suggest fair-share lineup</button>';
+  html +=   '<div class="settings-tools-hint">Greedy balancer that resets startingXI and scheduledSubs for every included game. Use Undo to roll back.</div>';
   html += '</div>';
 
   view.innerHTML = html;
@@ -3357,6 +3515,23 @@ function renderSettings() {
       if (activeGame >= tournament.games.length) activeGame = Math.max(0, tournament.games.length - 1);
       saveAll(); pushHistory(); renderActiveTab();
     });
+    const dup = row.querySelector('[data-dup-game]');
+    if (dup) dup.addEventListener('click', () => {
+      const src = tournament.games[idx];
+      if (!src) return;
+      const clone = JSON.parse(JSON.stringify(src));
+      clone.id = 'g_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+      clone.label = 'Game ' + (tournament.games.length + 1);
+      clone.opponent = 'TBD';
+      clone.time = 'TBD';
+      // Fresh sub IDs so the clone's history is independent.
+      if (Array.isArray(clone.scheduledSubs)) {
+        clone.scheduledSubs.forEach(s => { s.id = 's_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7); });
+      }
+      tournament.games.splice(idx + 1, 0, clone);
+      included.splice(idx + 1, 0, true);
+      saveAll(); pushHistory(); renderActiveTab();
+    });
   });
   const addBtn = document.getElementById('set-add-game');
   if (addBtn) addBtn.addEventListener('click', () => {
@@ -3380,6 +3555,85 @@ function renderSettings() {
     included.push(true);
     saveAll(); pushHistory(); renderActiveTab();
   });
+  const fsBtn = document.getElementById('set-fairshare');
+  if (fsBtn) fsBtn.addEventListener('click', () => {
+    const includedCount = included.filter(Boolean).length;
+    if (includedCount === 0) { alert('No games are included. Toggle game inclusion in the ribbon (Games tab) first.'); return; }
+    if (!confirm('Rebuild starting XI + half-time subs across ' + includedCount + ' included game(s) to balance minutes? Existing subs will be replaced. Use Undo to roll back.')) return;
+    suggestFairShareLineup();
+  });
+}
+
+/* Greedy fair-share balancer: rebuild startingXI + half-time subs across all
+   included games so that total minutes are roughly even per player. Iterates
+   games in order, picking the lowest-accumulated-minutes players for each
+   game's starting XI, and (for 2-period games) swapping the highest-used
+   field players for the lowest-used bench players at half-time. */
+function suggestFairShareLineup() {
+  const formation = getFormation(tournament.formationId);
+  if (!formation) return;
+  const onFieldCount = formation.roles.length;
+  if (PLAYERS.length < onFieldCount) {
+    alert('Roster has only ' + PLAYERS.length + ' player(s) but formation needs ' + onFieldCount + '. Add players first.');
+    return;
+  }
+  // Reset all included games then walk in order, accumulating minutes as we go.
+  for (let gi = 0; gi < tournament.games.length; gi++) {
+    if (!included[gi]) continue;
+    const g = tournament.games[gi];
+    g.scheduledSubs = [];
+    for (const r of formation.roles) g.startingXI[r.name] = '';
+  }
+  // Tracker: accumulated minutes per player across already-processed (included) games.
+  const acc = new Map(PLAYERS.map(p => [p, 0]));
+  // Comparison: ascending by accumulated minutes; tiebreak — PRIORITY players first into field, then alphabetical.
+  const cmpField = (a, b) => {
+    const da = acc.get(a) - acc.get(b);
+    if (da !== 0) return da;
+    const aPrio = PRIORITY.has(a), bPrio = PRIORITY.has(b);
+    if (aPrio !== bPrio) return aPrio ? -1 : 1; // priority first
+    return a.localeCompare(b);
+  };
+  for (let gi = 0; gi < tournament.games.length; gi++) {
+    if (!included[gi]) continue;
+    const g = tournament.games[gi];
+    const totalSec = gameTotalSec(g);
+    const halfSec = gameHalfTimeSec(g);
+    const np = gameNumberOfPeriods(g);
+    // Pick startingXI: the onFieldCount players with the lowest accumulated minutes.
+    const sorted = PLAYERS.slice().sort(cmpField);
+    const fieldPlayers = sorted.slice(0, onFieldCount);
+    const benchPlayers = sorted.slice(onFieldCount);
+    formation.roles.forEach((r, i) => {
+      g.startingXI[r.name] = fieldPlayers[i] || '';
+    });
+    // For 2-period games: schedule a half-time sub for the K most-used field players (bring in least-used bench players).
+    if (np === 2 && halfSec > 0 && halfSec < totalSec) {
+      const fieldByMost = fieldPlayers.slice().sort((a, b) => acc.get(b) - acc.get(a));
+      const benchByLeast = benchPlayers.slice().sort((a, b) => acc.get(a) - acc.get(b));
+      const swapCount = Math.min(fieldByMost.length, benchByLeast.length);
+      for (let k = 0; k < swapCount; k++) {
+        const off = fieldByMost[k];
+        const on = benchByLeast[k];
+        // Find the role 'off' is currently in.
+        const role = formation.roles.find(r => g.startingXI[r.name] === off);
+        if (!role) continue;
+        g.scheduledSubs.push({
+          id: 's_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7) + '_' + k,
+          role: role.name, timeSec: halfSec,
+          outPlayer: off, inPlayer: on,
+        });
+      }
+      g.scheduledSubs.sort((a, b) => a.role.localeCompare(b.role) || a.timeSec - b.timeSec);
+    }
+    // Update accumulator with this game's minutes per player (using the final segment graph).
+    for (const r of formation.roles) {
+      for (const seg of getCellSegments(g, r.name)) {
+        if (seg.player) acc.set(seg.player, (acc.get(seg.player) || 0) + (seg.endSec - seg.startSec));
+      }
+    }
+  }
+  saveAll(); pushHistory(); renderActiveTab();
 }
 
 /* ══════════════════ Detail view modal (per-game pitch + scrubber + timeline) ══════════════════ */
