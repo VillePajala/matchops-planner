@@ -1476,7 +1476,7 @@ const _loadedRoster = (() => {
     if (raw) {
       const p = JSON.parse(raw);
       if (p && Array.isArray(p.players)
-          && p.players.length === DEFAULT_PLAYERS.length
+          && p.players.length >= 1 && p.players.length <= 30
           && p.players.every(x => typeof x === 'string' && x.trim().length > 0)) {
         const prio = Array.isArray(p.priority) ? p.priority.filter(x => typeof x === 'string') : DEFAULT_PRIORITY.slice();
         return { players: p.players, priority: prio };
@@ -1861,6 +1861,8 @@ function escapeHtml(s) {
 }
 let VALID_PLAYERS_SET = new Set(PLAYERS);
 function rebuildValidPlayersSet() { VALID_PLAYERS_SET = new Set(PLAYERS); }
+// Both names refer to the same v3 structural validator.
+const hasValidTournament = (t) => hasValidShape(t);
 function hasValidShape(t) {
   if (!t || typeof t !== 'object') return false;
   if (!Array.isArray(t.games) || t.games.length === 0) return false;
@@ -2123,7 +2125,10 @@ function addSubAtMinute(gameIdx, role, atSec, inPlayer) {
   const durationSec = (g.durationMin || 25) * 60;
   atSec = Math.max(1, Math.min(durationSec - 1, Math.round(atSec)));
   // Find existing player at that time at this role (becomes outPlayer).
-  const outPlayer = playerAtRoleSec(g, role, atSec);
+  // Compute outPlayer from a slightly-earlier instant so an in-place update
+  // (where the sub at this role+time already exists) reads the segment
+  // *before* the boundary, not the segment that the existing sub starts.
+  const outPlayer = playerAtRoleSec(g, role, Math.max(0, atSec - 1));
   // If a sub already exists at exactly atSec for this role, update in-place; else append.
   const existing = (g.scheduledSubs || []).find(s => s.role === role && s.timeSec === atSec);
   if (existing) {
@@ -2436,7 +2441,7 @@ function renderMinutesTab() {
     return '<button class="' + cls + '" ' +
       'data-player="' + p.replace(/"/g, '&quot;') + '" ' +
       'style="--pt-bg:' + c.bg + ';--pt-fg:' + c.fg + '">' +
-      '<span class="pt-name">' + p + '</span>' +
+      '<span class="pt-name">' + escapeHtml(p) + '</span>' +
       '<span class="pt-total">' + totMin + "'" + '</span>' +
     '</button>';
   }).join('');
@@ -2495,7 +2500,7 @@ function renderFocusCard(focused, activeGames) {
 
   return '<div class="focus-card" data-player="' + focused.replace(/"/g, '&quot;') + '">' +
     '<div class="focus-head">' +
-      '<div class="focus-name">' + focused + (isPrio ? ' <span class="focus-star">★</span>' : '') + '</div>' +
+      '<div class="focus-name">' + escapeHtml(focused) + (isPrio ? ' <span class="focus-star">★</span>' : '') + '</div>' +
       '<div class="focus-total">' + totalMin + "'" + '</div>' +
     '</div>' +
     '<div class="focus-bar">' +
@@ -2832,7 +2837,10 @@ function onDrop(e) {
   const tgtRole = t.dataset.role;
   const tgtStart = parseInt(t.dataset.start, 10) || 0;
   if (tgtRole === dragSource.role && tgtStart === dragSource.startSec) return;
-  performSwap(parseInt(dragSource.game,10), dragSource.role, dragSource.startSec, tgtRole, tgtStart, dragSource.benchPlayer);
+  // benchPlayer override: read from whichever endpoint is the bench chip.
+  const tgtBenchPlayer = tgtRole === '__BENCH__' ? (t.dataset.benchPlayer || '') : undefined;
+  const benchOverride = dragSource.benchPlayer || tgtBenchPlayer;
+  performSwap(parseInt(dragSource.game,10), dragSource.role, dragSource.startSec, tgtRole, tgtStart, benchOverride);
 }
 function onDragEnd(e) {
   e.currentTarget.style.opacity = '';
