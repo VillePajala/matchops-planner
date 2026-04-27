@@ -548,16 +548,22 @@ button { border: none; background: none; color: inherit; cursor: pointer; }
   text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px;
   font-family: 'Rajdhani', system-ui, sans-serif;
 }
-.bench-row .chip-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
-/* Bench chips — light variants of the same palette (MatchOps planner) */
-.bench-row .slot[data-half="h1"] {
+.bench-row .chip-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 6px;
+}
+/* Bench chips — neutral grey, distinct from on-field segment colours.
+   Override the [data-segidx] selector that would otherwise paint them yellow. */
+.bench-row .slot,
+.bench-row .slot[data-segidx="1"],
+.bench-row .slot[data-segidx="2"],
+.bench-row .slot[data-segidx="3"],
+.bench-row .slot[data-segidx="4"],
+.bench-row .slot[data-segidx="5"],
+.bench-row .slot[data-segidx="6"] {
   background: #e8e8e8;
   border-color: #bbb;
-  color: #333;
-}
-.bench-row .slot[data-half="h2"] {
-  background: #ffecb3;
-  border-color: #d4a017;
   color: #333;
 }
 .bench-row .chip-min-bar { background: rgba(0,0,0,0.12); }
@@ -1215,6 +1221,13 @@ input[type="checkbox"] { accent-color: var(--success); cursor: pointer; }
   border-radius: var(--r-sm);
   font-size: 13px;
 }
+.settings-row .settings-readout {
+  flex: 1;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+.settings-row .settings-readout a { color: var(--accent); text-decoration: none; }
+.settings-row .settings-readout a:hover { text-decoration: underline; }
 .settings-game-row {
   display: grid;
   grid-template-columns: minmax(60px, 0.8fr) minmax(80px, 1.4fr) minmax(50px, 0.7fr) 86px 76px auto;
@@ -2020,6 +2033,86 @@ function resolveUnknown(unknownName, targetName) {
   saveAll(); pushHistory(); renderActiveTab(); refreshStateBanner();
   return true;
 }
+function addPlayer(name) {
+  const n = String(name || '').trim();
+  if (!n) return false;
+  if (PLAYERS.includes(n)) { alert('"' + n + '" is already in the roster.'); return false; }
+  if (PLAYERS.length >= 30) { alert('Roster cap is 30 players.'); return false; }
+  PLAYERS.push(n);
+  rebuildValidPlayersSet();
+  saveRoster();
+  // Keep tournament.rosterSize in sync if it was tracking PLAYERS.length.
+  tournament.rosterSize = PLAYERS.length;
+  saveAll(); pushHistory(); renderActiveTab(); refreshStateBanner();
+  return true;
+}
+function removePlayer(name) {
+  const n = String(name || '').trim();
+  if (!n) return false;
+  const idx = PLAYERS.indexOf(n);
+  if (idx < 0) return false;
+  // Count appearances so we can warn the user.
+  let onFieldGames = 0, subRefs = 0;
+  for (const g of tournament.games) {
+    for (const role of Object.keys(g.startingXI)) {
+      if (g.startingXI[role] === n) { onFieldGames++; break; }
+    }
+    for (const s of (g.scheduledSubs || [])) {
+      if (s.inPlayer === n || s.outPlayer === n) subRefs++;
+    }
+  }
+  const summary = (onFieldGames > 0 || subRefs > 0)
+    ? '\n\n' + n + ' appears on the field in ' + onFieldGames + ' game(s) and in ' + subRefs + ' substitution(s). Those slots will be cleared and the subs dropped.'
+    : '';
+  if (!confirm('Remove "' + n + '" from the roster?' + summary)) return false;
+  // Apply removal.
+  PLAYERS.splice(idx, 1);
+  PRIORITY.delete(n);
+  highlightedPlayers.delete(n);
+  rebuildValidPlayersSet();
+  saveRoster();
+  for (const g of tournament.games) {
+    for (const role of Object.keys(g.startingXI)) {
+      if (g.startingXI[role] === n) g.startingXI[role] = '';
+    }
+    if (Array.isArray(g.scheduledSubs)) {
+      g.scheduledSubs = g.scheduledSubs.filter(s => s.inPlayer !== n && s.outPlayer !== n);
+    }
+  }
+  // Versions: also clean.
+  const versions = loadVersions();
+  let touched = false;
+  for (const vName of Object.keys(versions)) {
+    const v = versions[vName];
+    if (!v || !v.tournament) continue;
+    for (const g of v.tournament.games) {
+      for (const role of Object.keys(g.startingXI)) {
+        if (g.startingXI[role] === n) { g.startingXI[role] = ''; touched = true; }
+      }
+      if (Array.isArray(g.scheduledSubs)) {
+        const before = g.scheduledSubs.length;
+        g.scheduledSubs = g.scheduledSubs.filter(s => s.inPlayer !== n && s.outPlayer !== n);
+        if (g.scheduledSubs.length !== before) touched = true;
+      }
+    }
+  }
+  if (touched) saveVersionsMap(versions);
+  // Same scrub on the in-memory undo history so Undo can't restore stale slots.
+  for (const snap of history) {
+    if (!snap || !snap.tournament) continue;
+    for (const g of snap.tournament.games) {
+      for (const role of Object.keys(g.startingXI)) {
+        if (g.startingXI[role] === n) g.startingXI[role] = '';
+      }
+      if (Array.isArray(g.scheduledSubs)) {
+        g.scheduledSubs = g.scheduledSubs.filter(s => s.inPlayer !== n && s.outPlayer !== n);
+      }
+    }
+  }
+  tournament.rosterSize = PLAYERS.length;
+  saveAll(); pushHistory(); renderActiveTab(); refreshStateBanner();
+  return true;
+}
 
 /* ══════════════════ Helpers ══════════════════ */
 function escapeHtml(s) {
@@ -2507,7 +2600,9 @@ function renderGameDetail() {
         const extra = playsBothAtHalf(seg.player);
         html += chipHtml(gIdx, role.name, seg.startSec, seg.segIdx, segMin, seg.player, extra);
       }
-      if (halfSec > 0 && !isFull) html += '<div class="ht-divider"></div>';
+      // Always render the divider when the game has 2 halves, even on full-game
+      // chips — it's a visual guide so the coach can plan a sub at the boundary.
+      if (halfSec > 0) html += '<div class="ht-divider"></div>';
       html +=   '</div>';
       html += '</div>';
     }
@@ -2523,9 +2618,12 @@ function renderGameDetail() {
             '</button>';
   html +=   '<div class="bench-section' + (benchOpen ? ' open' : '') + '" id="bench-section">';
   html +=     '<div class="bench-row"><div class="chip-row">' +
-                benchPlayersAtKickoff.map((pl, idx) => {
+                benchPlayersAtKickoff.map((pl) => {
                   const extra = benchedNeverPlay.has(pl) ? 'benched-both' : '';
-                  return chipHtml(gIdx, '__BENCH__', 0, idx, 1, pl, extra);
+                  // segIdx=0 for every bench chip so they don't pick up the
+                  // [data-segidx>=1] "later-segment" yellow style; bench has
+                  // its own colour rule via .bench-row .slot.
+                  return chipHtml(gIdx, '__BENCH__', 0, 0, 1, pl, extra);
                 }).join('') +
               '</div></div>';
   html +=   '</div>';
@@ -2888,16 +2986,20 @@ function renderPlans() {
 
   // Roster
   html += '<div class="plans-section">';
-  html +=   '<h4>Roster</h4>';
+  html +=   '<h4>Roster (' + PLAYERS.length + ')</h4>';
   html +=   '<div class="version-list">';
   PLAYERS.forEach(p => {
     const pEsc = escapeHtml(p);
+    const isPrio = PRIORITY.has(p);
     html += '<div class="version-row" data-roster-player="' + encodeURIComponent(p) + '">' +
-      '<span class="vname" title="' + pEsc + '">' + pEsc + '</span>' +
+      '<span class="vname" title="' + pEsc + '">' + (isPrio ? '★ ' : '') + pEsc + '</span>' +
+      '<button class="vbtn" data-action="toggle-prio" title="' + (isPrio ? 'Unmark priority' : 'Mark priority') + '" aria-label="Toggle priority for ' + pEsc + '">' + (isPrio ? '☆' : '★') + '</button>' +
       '<button class="vbtn" data-action="rename-player" title="Rename" aria-label="Rename ' + pEsc + '">✎</button>' +
+      '<button class="vbtn delete" data-action="remove-player" title="Remove" aria-label="Remove ' + pEsc + '">✕</button>' +
     '</div>';
   });
   html +=   '</div>';
+  html +=   '<button class="btn" id="plan-add-player" style="margin-top:8px;">+ Add player</button>';
   const _unknownRefs = collectUnknownPlayers(tournament);
   if (_unknownRefs.length) {
     html += '<h4 style="margin-top:12px">Unknown references</h4>';
@@ -2967,6 +3069,24 @@ function renderPlans() {
       if (!n || n === p) return;
       renamePlayer(p, n);
     });
+    const remBtn = row.querySelector('[data-action="remove-player"]');
+    if (remBtn) remBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      removePlayer(p);
+    });
+    const prioBtn = row.querySelector('[data-action="toggle-prio"]');
+    if (prioBtn) prioBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (PRIORITY.has(p)) PRIORITY.delete(p); else PRIORITY.add(p);
+      saveRoster();
+      renderPlans();
+    });
+  });
+  const addPlayerBtn = document.getElementById('plan-add-player');
+  if (addPlayerBtn) addPlayerBtn.addEventListener('click', () => {
+    const input = prompt('Player name:');
+    if (input === null) return;
+    addPlayer(input);
   });
   view.querySelectorAll('[data-unknown-player]').forEach(row => {
     const u = decodeURIComponent(row.dataset.unknownPlayer);
@@ -3397,8 +3517,8 @@ function renderSettings() {
     html += '</optgroup>';
   }
   html +=     '</select></div>';
-  html +=   '<div class="settings-row"><label for="set-roster">Roster size</label>';
-  html +=     '<input type="number" id="set-roster" min="' + formation.roles.length + '" max="30" value="' + (tournament.rosterSize || PLAYERS.length) + '"></div>';
+  html +=   '<div class="settings-row"><label>Roster</label>';
+  html +=     '<span class="settings-readout">' + PLAYERS.length + ' player' + (PLAYERS.length === 1 ? '' : 's') + ' — manage in <a href="#" data-jump="plans">Plans tab</a></span></div>';
   html += '</div>';
 
   // Per-game list
@@ -3469,16 +3589,11 @@ function renderSettings() {
     tournament.formationId = newId;
     saveAll(); pushHistory(); renderActiveTab();
   });
-  document.getElementById('set-roster').addEventListener('change', (e) => {
-    const v = parseInt(e.target.value, 10);
-    if (!isFinite(v) || v < formation.roles.length) {
-      alert('Roster size must be at least ' + formation.roles.length + ' (formation outfield + GK).');
-      e.target.value = tournament.rosterSize || PLAYERS.length;
-      return;
-    }
-    tournament.rosterSize = v;
-    saveAll(); pushHistory();
+  view.querySelectorAll('a[data-jump="plans"]').forEach(a => {
+    a.addEventListener('click', (e) => { e.preventDefault(); setTab('plans'); });
   });
+  // Keep tournament.rosterSize in sync (used by fair-share math).
+  tournament.rosterSize = PLAYERS.length;
   view.querySelectorAll('.settings-game-row').forEach(row => {
     const idx = parseInt(row.dataset.gameRow, 10);
     const applyPeriods = (g) => {
