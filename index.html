@@ -1059,6 +1059,58 @@ input[type="checkbox"] { accent-color: var(--success); cursor: pointer; }
   width: 0; border-left: 1px dashed rgba(255,255,255,0.45);
 }
 
+/* ══════════════════ Bottom sheet inline form ══════════════════ */
+#sheet-body { margin-bottom: 12px; }
+#sheet-body:empty { display: none; }
+.sheet-min-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 12px;
+  background: rgba(15,23,42,0.55);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--r-sm);
+  margin-bottom: 10px;
+}
+.sheet-min-row label {
+  font-size: 12px; font-weight: 600;
+  color: var(--text-dim);
+  min-width: 60px;
+}
+.sheet-min-row input[type="number"] {
+  flex: 1;
+  padding: 8px 10px;
+  background: rgba(15,23,42,0.85);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  text-align: center;
+}
+.sheet-section-label {
+  font-size: 11px; font-weight: 700;
+  color: var(--text-mute);
+  text-transform: uppercase; letter-spacing: 0.6px;
+  margin: 8px 0 6px;
+}
+.sheet-bench-grid {
+  display: grid; gap: 6px;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  margin-bottom: 4px;
+}
+.sheet-bench-chip {
+  padding: 12px 8px;
+  font-size: 13px; font-weight: 700;
+  text-align: center;
+  background: rgba(56,189,248,0.12);
+  color: var(--text);
+  border: 1px solid rgba(56,189,248,0.4);
+  border-radius: var(--r-sm);
+  width: auto;
+}
+.sheet-bench-chip:hover { background: rgba(56,189,248,0.2); }
+.sheet-bench-chip:active { transform: scale(0.96); }
+
 /* ══════════════════ Pitch card header (game label + open-detail button) ══════════════════ */
 .pitch-card-header {
   display: flex; align-items: center; justify-content: space-between;
@@ -1279,10 +1331,11 @@ input[type="checkbox"] { accent-color: var(--success); cursor: pointer; }
 
 <!-- Bottom sheet -->
 <div id="sheet-backdrop" class="sheet-backdrop"></div>
-<div id="bottom-sheet" class="bottom-sheet">
+<div id="bottom-sheet" class="bottom-sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title" aria-describedby="sheet-sub" tabindex="-1">
   <div class="sheet-handle"></div>
   <h3 id="sheet-title" class="sheet-title"></h3>
   <p id="sheet-sub" class="sheet-sub"></p>
+  <div id="sheet-body"></div>
   <div id="sheet-actions" class="sheet-actions"></div>
 </div>
 
@@ -1335,9 +1388,9 @@ const FORMATIONS = [
   { id: '5v5-3-1', name: '3-1', fieldSize: '5v5', outfieldCount: 4,
     roles: [
       { name: 'GK', relX: 0.50, relY: 0.95 },
-      { name: 'LB', relX: 0.15, relY: 0.65 },
-      { name: 'CB', relX: 0.50, relY: 0.65 },
-      { name: 'RB', relX: 0.85, relY: 0.65 },
+      { name: 'LM', relX: 0.15, relY: 0.65 },
+      { name: 'CM', relX: 0.50, relY: 0.65 },
+      { name: 'RM', relX: 0.85, relY: 0.65 },
       { name: 'ST', relX: 0.50, relY: 0.30 },
     ]},
   { id: '5v5-2-1-1', name: '2-1-1', fieldSize: '5v5', outfieldCount: 4,
@@ -1538,6 +1591,8 @@ function buildSeedTournament() {
       time: V2_SCHEDULE[i].time,
       field: V2_SCHEDULE[i].field,
       opponent: V2_SCHEDULE[i].opp,
+      numberOfPeriods: 2,
+      periodDurationMinutes: 12.5,
       durationMin: 25,
       halfTimeMin: 12.5,
       startingXI,
@@ -1557,6 +1612,51 @@ const STORAGE_KEY_V2 = 'matchops-planner-state-v2';
 const VERSIONS_KEY = 'matchops-planner-versions-v1';
 const DEFAULT_INCLUDED_LEN = 5;
 function defaultIncluded(n) { return new Array(n).fill(true); }
+
+/* Repair role names if a saved plan uses slightly different role keys than the
+   current formation registry (e.g. 5v5-3-1 was originally shipped with
+   LB/CB/RB; coords were at midfield band so it was renamed to LM/CM/RM).
+   Strategy: if every startingXI key is already a valid role, no-op; else
+   build a positional rename map (old roles in the same listed order →
+   new roles in the same listed order) and rewrite startingXI + scheduledSubs.
+   Returns the (possibly mutated) game. */
+function repairGameRoles(game, formation) {
+  if (!game || !formation) return game;
+  const validRoles = new Set(formation.roles.map(r => r.name));
+  const oldRoles = Object.keys(game.startingXI || {});
+  if (oldRoles.length === 0) return game;
+  const allValid = oldRoles.every(r => validRoles.has(r));
+  if (allValid) return game;
+  // Positional remap: assume old keys were ordered the same as the formation roles.
+  // Carry any role name that already matches; remap the rest by index.
+  const newRoles = formation.roles.map(r => r.name);
+  if (oldRoles.length !== newRoles.length) return game; // can't safely repair
+  const renameMap = {};
+  for (let i = 0; i < oldRoles.length; i++) {
+    if (oldRoles[i] !== newRoles[i]) renameMap[oldRoles[i]] = newRoles[i];
+  }
+  if (Object.keys(renameMap).length === 0) return game;
+  const newXI = {};
+  for (let i = 0; i < oldRoles.length; i++) {
+    const oldR = oldRoles[i];
+    const newR = renameMap[oldR] || oldR;
+    newXI[newR] = game.startingXI[oldR];
+  }
+  game.startingXI = newXI;
+  if (Array.isArray(game.scheduledSubs)) {
+    for (const s of game.scheduledSubs) {
+      if (s && renameMap[s.role]) s.role = renameMap[s.role];
+    }
+  }
+  return game;
+}
+function repairTournamentRoles(t) {
+  if (!t || !Array.isArray(t.games)) return t;
+  const formation = getFormation(t.formationId);
+  if (!formation) return t;
+  for (const g of t.games) repairGameRoles(g, formation);
+  return t;
+}
 
 /* ══════════════════ Migration v2 → v3 ══════════════════ */
 function migrateV2ToV3(v2) {
@@ -1582,6 +1682,8 @@ function migrateV2ToV3(v2) {
       time: V2_SCHEDULE[i] ? V2_SCHEDULE[i].time : '',
       field: V2_SCHEDULE[i] ? V2_SCHEDULE[i].field : '',
       opponent: V2_SCHEDULE[i] ? V2_SCHEDULE[i].opp : 'Opponent',
+      numberOfPeriods: 2,
+      periodDurationMinutes: 12.5,
       durationMin: 25,
       halfTimeMin: 12.5,
       startingXI,
@@ -1650,6 +1752,10 @@ function loadAll() {
     const raw = localStorage.getItem(STORAGE_KEY_V3);
     if (raw) {
       const p = JSON.parse(raw);
+      if (p && p.tournament) {
+        repairTournamentRoles(p.tournament);
+        if (Array.isArray(p.tournament.games)) p.tournament.games.forEach(ensureGamePeriodModel);
+      }
       if (p && hasValidTournament(p.tournament)) {
         const n = p.tournament.games.length;
         return {
@@ -1813,6 +1919,10 @@ function rewriteNameInTournament(t, oldName, newName) {
 }
 function applyNameRewrite(oldName, newName) {
   rewriteNameInTournament(tournament, oldName, newName);
+  // Rewrite in-memory undo/redo snapshots so Undo can't restore stale assignments.
+  for (const snap of history) {
+    if (snap && snap.tournament) rewriteNameInTournament(snap.tournament, oldName, newName);
+  }
   const versions = loadVersions();
   let touched = false;
   for (const n of Object.keys(versions)) {
@@ -1904,9 +2014,54 @@ function validateGamesShape(t) {
   return hasValidShape(t) && collectUnknownPlayers(t).length === 0;
 }
 
+/* Period helpers — single source of truth for game length / half-time.
+ *
+ * Canonical storage (matches MatchOps-Local's Game.numberOfPeriods +
+ * Game.periodDurationMinutes): a game has `numberOfPeriods` (1 or 2) and
+ * `periodDurationMinutes` (length of each period). Total = nPeriods × len.
+ * Half-time mark = nPeriods === 2 ? len : 0.
+ *
+ * Legacy fields `durationMin` (total) and `halfTimeMin` (half-time mark)
+ * are still read as a fallback for any plan that hasn't been re-saved
+ * since the period-model switch. New writes set BOTH canonical and
+ * legacy fields so old code paths keep working until they're updated. */
+function gameNumberOfPeriods(g) {
+  if (typeof g.numberOfPeriods === 'number' && (g.numberOfPeriods === 1 || g.numberOfPeriods === 2)) return g.numberOfPeriods;
+  // Derive from legacy: halfTimeMin > 0 and < durationMin → 2 halves; else single period.
+  const dur = g.durationMin || 25;
+  return (g.halfTimeMin > 0 && g.halfTimeMin < dur) ? 2 : 1;
+}
+function gamePeriodMin(g) {
+  if (typeof g.periodDurationMinutes === 'number' && g.periodDurationMinutes > 0) return g.periodDurationMinutes;
+  // Derive from legacy.
+  const dur = g.durationMin || 25;
+  const np = gameNumberOfPeriods(g);
+  return np === 2 ? (g.halfTimeMin || dur / 2) : dur;
+}
+function gameTotalMin(g) { return gamePeriodMin(g) * gameNumberOfPeriods(g); }
+function gameTotalSec(g) { return gameTotalMin(g) * 60; }
+function gameHalfTimeMin(g) { return gameNumberOfPeriods(g) === 2 ? gamePeriodMin(g) : 0; }
+function gameHalfTimeSec(g) { return gameHalfTimeMin(g) * 60; }
+function setGamePeriodModel(g, numberOfPeriods, periodDurationMinutes) {
+  g.numberOfPeriods = numberOfPeriods;
+  g.periodDurationMinutes = periodDurationMinutes;
+  // Maintain legacy fields for backward compatibility with any code that still reads them.
+  g.durationMin = numberOfPeriods * periodDurationMinutes;
+  g.halfTimeMin = numberOfPeriods === 2 ? periodDurationMinutes : 0;
+}
+function ensureGamePeriodModel(g) {
+  // Idempotent: if canonical is missing, derive it from legacy (or defaults).
+  if (typeof g.numberOfPeriods !== 'number' || (g.numberOfPeriods !== 1 && g.numberOfPeriods !== 2)
+      || typeof g.periodDurationMinutes !== 'number' || g.periodDurationMinutes <= 0) {
+    const np = gameNumberOfPeriods(g);
+    const len = gamePeriodMin(g);
+    setGamePeriodModel(g, np, len);
+  }
+}
+
 /* Walk scheduledSubs at one role to produce contiguous segments. */
 function getCellSegments(game, role) {
-  const durationSec = (game.durationMin || 25) * 60;
+  const durationSec = gameTotalSec(game);
   const subs = (game.scheduledSubs || [])
     .filter(s => s.role === role)
     .slice()
@@ -1970,7 +2125,7 @@ function playerMinsPerGame(player, gameIdx) { return playerSecondsInGame(player,
 function playerGamePositions(player, gameIdx) {
   const g = tournament.games[gameIdx];
   if (!g) return { text: null };
-  const totalSec = (g.durationMin || 25) * 60;
+  const totalSec = gameTotalSec(g);
   const slices = [];
   for (const role of Object.keys(g.startingXI)) {
     for (const seg of getCellSegments(g, role)) {
@@ -1994,7 +2149,7 @@ function playerGKInGame(player, gameIdx) {
   if (!g) return null;
   const segs = getCellSegments(g, 'GK');
   if (segs.length === 0) return null;
-  const totalSec = (g.durationMin || 25) * 60;
+  const totalSec = gameTotalSec(g);
   let asGK = 0;
   for (const seg of segs) if (seg.player === player) asGK += (seg.endSec - seg.startSec);
   if (asGK <= 0) return null;
@@ -2019,7 +2174,7 @@ function playerRatio(player) {
   let total = 0;
   for (let i = 0; i < tournament.games.length; i++) {
     if (!included[i]) continue;
-    const d = (tournament.games[i].durationMin || 25) * 60;
+    const d = gameTotalSec(tournament.games[i]);
     total += d * onFieldCount;
   }
   if (total <= 0) return null;
@@ -2122,7 +2277,7 @@ function performSwap(gIdx, srcRole, srcStart, tgtRole, tgtStart, benchPlayerOver
 function addSubAtMinute(gameIdx, role, atSec, inPlayer) {
   const g = tournament.games[gameIdx];
   if (!g) return;
-  const durationSec = (g.durationMin || 25) * 60;
+  const durationSec = gameTotalSec(g);
   atSec = Math.max(1, Math.min(durationSec - 1, Math.round(atSec)));
   // Find existing player at that time at this role (becomes outPlayer).
   // Compute outPlayer from a slightly-earlier instant so an in-place update
@@ -2250,8 +2405,8 @@ function renderGameDetail() {
   const formation = getFormation(tournament.formationId);
   const rows = formationRows(formation);
   const benchOpen = benchOpenFor === gIdx;
-  const durationSec = (g.durationMin || 25) * 60;
-  const halfSec = (g.halfTimeMin > 0 && g.halfTimeMin < (g.durationMin || 25)) ? g.halfTimeMin * 60 : 0;
+  const durationSec = gameTotalSec(g);
+  const halfSec = gameHalfTimeSec(g);
   const htPct = halfSec > 0 ? (halfSec / durationSec * 100).toFixed(2) + '%' : '50%';
 
   // Header (game name + opponent + Detail button)
@@ -2482,7 +2637,7 @@ function renderFocusCard(focused, activeGames) {
   const gamesHtml = tournament.games.map((g, i) => {
     const sec = playerMinsPerGame(focused, i);
     const posInfo = playerGamePositions(focused, i);
-    const totalGameSec = (g.durationMin || 25) * 60;
+    const totalGameSec = gameTotalSec(g);
     const ratio = totalGameSec > 0 ? sec / totalGameSec : 0;
     let cls = 'focus-game';
     if (!included[i]) cls += ' excluded';
@@ -2871,12 +3026,18 @@ function onChipClick(e) {
 }
 
 /* ══════════════════ Bottom sheet ══════════════════ */
-function openSheet(title, sub, actions) {
+let _sheetReturnFocus = null;
+function openSheet(title, sub, actions, opts) {
+  opts = opts || {};
+  _sheetReturnFocus = (document.activeElement instanceof HTMLElement) ? document.activeElement : null;
   document.getElementById('sheet-title').textContent = title;
   document.getElementById('sheet-sub').textContent = sub || '';
+  const body = document.getElementById('sheet-body');
+  body.innerHTML = opts.bodyHtml || '';
+  if (opts.onBodyMount) opts.onBodyMount(body);
   const actionsBox = document.getElementById('sheet-actions');
   actionsBox.innerHTML = '';
-  actions.forEach(a => {
+  (actions || []).forEach(a => {
     const b = document.createElement('button');
     b.className = 'btn' + (a.variant ? ' ' + a.variant : '');
     b.textContent = a.label;
@@ -2884,13 +3045,33 @@ function openSheet(title, sub, actions) {
     actionsBox.appendChild(b);
   });
   document.getElementById('sheet-backdrop').classList.add('open');
-  document.getElementById('bottom-sheet').classList.add('open');
+  const sheet = document.getElementById('bottom-sheet');
+  sheet.classList.add('open');
+  // Move focus into the sheet (first focusable, or sheet container) after the slide animation.
+  setTimeout(() => {
+    const first = sheet.querySelector('input, select, textarea, button:not([disabled])');
+    (first || sheet).focus();
+  }, 60);
 }
 function closeSheet() {
   document.getElementById('sheet-backdrop').classList.remove('open');
   document.getElementById('bottom-sheet').classList.remove('open');
+  // Restore focus to the element that opened the sheet (chip, button, etc.)
+  const r = _sheetReturnFocus; _sheetReturnFocus = null;
+  if (r && document.body.contains(r)) {
+    setTimeout(() => { try { r.focus(); } catch (_) {} }, 60);
+  }
+}
+function isSheetOpen() {
+  return document.getElementById('bottom-sheet').classList.contains('open');
 }
 document.getElementById('sheet-backdrop').addEventListener('click', closeSheet);
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    if (isSheetOpen()) { e.preventDefault(); closeSheet(); return; }
+    if (document.getElementById('detail-overlay').classList.contains('open')) { e.preventDefault(); closeDetailModal(); return; }
+  }
+});
 
 function openChipSheet(slot) {
   const gIdx = parseInt(slot.dataset.game, 10);
@@ -2912,30 +3093,15 @@ function openChipSheet(slot) {
     // Compute current segment end-time for "Add sub at..." default
     const segs = getCellSegments(g, role);
     const seg = segs.find(s => s.startSec === startSec) || segs[0];
-    const durationMin = (g.durationMin || 25);
-    const halfTimeMin = g.halfTimeMin > 0 && g.halfTimeMin < durationMin ? g.halfTimeMin : durationMin / 2;
+    const durationMin = gameTotalMin(g);
+    const halfTimeMin = gameHalfTimeMin(g) || durationMin / 2;
     const segStartMin = (seg.startSec / 60);
     const segEndMin = (seg.endSec / 60);
     const defaultMin = (halfTimeMin > segStartMin && halfTimeMin < segEndMin) ? halfTimeMin : (segStartMin + (segEndMin - segStartMin) / 2);
 
     actions.push({
       label: 'Add sub at minute…', variant: 'primary',
-      onClick: () => {
-        const benchAtNow = benchAtSec(g, seg.startSec);
-        const minStr = prompt('Sub at what minute? (' + Math.ceil(segStartMin + 0.01) + '–' + Math.floor(segEndMin - 0.01) + ')', String(defaultMin));
-        if (minStr === null) return;
-        const min = parseFloat(minStr);
-        if (!isFinite(min) || min <= segStartMin || min >= segEndMin) {
-          alert('Minute must be inside the current segment (' + segStartMin.toFixed(1) + '–' + segEndMin.toFixed(1) + ').');
-          return;
-        }
-        if (benchAtNow.length === 0) { alert('No bench players available at that time.'); return; }
-        const inP = prompt('Who comes on at ' + min + "'?\n\nBench: " + benchAtNow.join(', '), benchAtNow[0]);
-        if (!inP) return;
-        const t = inP.trim();
-        if (!benchAtNow.includes(t)) { alert('"' + t + '" is not on the bench at that time. Pick from: ' + benchAtNow.join(', ')); return; }
-        addSubAtMinute(gIdx, role, Math.round(min * 60), t);
-      }
+      onClick: () => openAddSubSheet(gIdx, role, seg)
     });
 
     // If this segment starts at a sub boundary (startSec > 0), offer to remove the sub.
@@ -2952,6 +3118,83 @@ function openChipSheet(slot) {
     : ('Position: ' + role + (startSec > 0 ? (' · from ' + Math.round(startSec / 60) + "'") : ' · from kickoff'));
   openSheet(player, subLine, actions);
 }
+/* Inline form: pick minute + bench player without nested prompts. */
+function openAddSubSheet(gameIdx, role, seg) {
+  const g = tournament.games[gameIdx];
+  if (!g) return;
+  const segStartMin = seg.startSec / 60;
+  const segEndMin = seg.endSec / 60;
+  const halfMin = gameHalfTimeMin(g);
+  const defaultMin = (halfMin > segStartMin && halfMin < segEndMin)
+    ? halfMin
+    : Math.round((segStartMin + segEndMin) / 2 * 2) / 2;
+  const minLow = Math.ceil((segStartMin + 0.5) * 2) / 2;
+  const minHigh = Math.floor((segEndMin - 0.5) * 2) / 2;
+
+  const titleText = 'Sub at ' + role;
+  const subText = 'Replaces ' + (seg.player || '—') + ' (segment ' + segStartMin.toFixed(1).replace(/\.0$/, '') + "'–" + segEndMin.toFixed(1).replace(/\.0$/, '') + "')";
+
+  const renderForm = (host, currentMin) => {
+    const minClamped = Math.max(minLow, Math.min(minHigh, currentMin));
+    const benchAtThatTime = benchAtSec(g, Math.round(minClamped * 60));
+    host.innerHTML = '';
+
+    const minRow = document.createElement('div');
+    minRow.className = 'sheet-min-row';
+    const labelEl = document.createElement('label');
+    labelEl.htmlFor = 'sub-min';
+    labelEl.textContent = "Minute";
+    const minInput = document.createElement('input');
+    minInput.type = 'number';
+    minInput.id = 'sub-min';
+    minInput.min = String(minLow);
+    minInput.max = String(minHigh);
+    minInput.step = '0.5';
+    minInput.value = String(minClamped);
+    minRow.appendChild(labelEl);
+    minRow.appendChild(minInput);
+    host.appendChild(minRow);
+
+    const sectionLabel = document.createElement('div');
+    sectionLabel.className = 'sheet-section-label';
+    sectionLabel.textContent = benchAtThatTime.length === 0
+      ? 'No bench players available at this minute.'
+      : 'Tap a player to bring on:';
+    host.appendChild(sectionLabel);
+
+    const grid = document.createElement('div');
+    grid.className = 'sheet-bench-grid';
+    benchAtThatTime.forEach(p => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'btn sheet-bench-chip';
+      btn.textContent = p;
+      btn.addEventListener('click', () => {
+        const m = parseFloat(document.getElementById('sub-min').value);
+        if (!isFinite(m) || m <= segStartMin || m >= segEndMin) {
+          alert('Minute must be inside the current segment (' + segStartMin.toFixed(1) + '–' + segEndMin.toFixed(1) + ').');
+          return;
+        }
+        addSubAtMinute(gameIdx, role, Math.round(m * 60), p);
+        closeSheet();
+      });
+      grid.appendChild(btn);
+    });
+    host.appendChild(grid);
+
+    minInput.addEventListener('change', () => {
+      const m = parseFloat(minInput.value);
+      if (isFinite(m)) renderForm(host, m);
+    });
+  };
+
+  openSheet(titleText, subText, [
+    { label: 'Cancel', onClick: () => {} }
+  ], {
+    onBodyMount: (host) => renderForm(host, defaultMin)
+  });
+}
+
 function openPlayerSheet(player) {
   const total = playerTotalSec(player);
   const r = playerRatio(player);
@@ -3014,10 +3257,8 @@ function renderSettings() {
   html += '<div class="settings-section">';
   html +=   '<h4>Games (' + tournament.games.length + ')</h4>';
   tournament.games.forEach((g, i) => {
-    const periods = (g.halfTimeMin > 0 && g.halfTimeMin < (g.durationMin || 25)) ? 2 : 1;
-    const periodLen = periods === 2
-      ? (g.halfTimeMin || (g.durationMin || 25) / 2)
-      : (g.durationMin || 25);
+    const periods = gameNumberOfPeriods(g);
+    const periodLen = gamePeriodMin(g);
     html += '<div class="settings-game-row" data-game-row="' + i + '">';
     html +=   '<input type="text" data-f="time" placeholder="Time" value="' + escapeHtml(g.time || '') + '">';
     html +=   '<input type="text" data-f="opponent" placeholder="Opponent" value="' + escapeHtml(g.opponent || '') + '">';
@@ -3088,10 +3329,9 @@ function renderSettings() {
       const periods = parseInt(periodsSel.value, 10) === 2 ? 2 : 1;
       const len = parseFloat(lenInp.value);
       if (!isFinite(len) || len <= 0) return false;
-      g.durationMin = len * periods;
-      g.halfTimeMin = periods === 2 ? len : 0;
+      setGamePeriodModel(g, periods, len);
       // Drop subs that fall outside the new total duration.
-      const totalSec = g.durationMin * 60;
+      const totalSec = gameTotalSec(g);
       g.scheduledSubs = (g.scheduledSubs || []).filter(s => s.timeSec > 0 && s.timeSec < totalSec);
       return true;
     };
@@ -3133,6 +3373,7 @@ function renderSettings() {
       id: 'g_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
       label: 'Game ' + (tournament.games.length + 1),
       opponent: 'TBD', time: 'TBD', field: '',
+      numberOfPeriods: 2, periodDurationMinutes: 12.5,
       durationMin: 25, halfTimeMin: 12.5,
       startingXI: xi, scheduledSubs: []
     });
@@ -3157,14 +3398,14 @@ function renderDetailModal() {
   const g = tournament.games[detailGameIdx];
   if (!g) { closeDetailModal(); return; }
   const formation = getFormation(tournament.formationId);
-  const durationSec = (g.durationMin || 25) * 60;
-  const halfSec = (g.halfTimeMin > 0 && g.halfTimeMin < (g.durationMin || 25)) ? g.halfTimeMin * 60 : 0;
+  const durationSec = gameTotalSec(g);
+  const halfSec = gameHalfTimeSec(g);
   const sec = Math.max(0, Math.min(durationSec - 1, detailScrubSec || 0));
 
   document.getElementById('detail-title').textContent =
     (g.label || ('Game ' + (detailGameIdx + 1))) + ' · ' + (tournament.teamName || '') + ' vs ' + (g.opponent || 'TBD');
   document.getElementById('detail-sub').textContent =
-    formation.name + ' · ' + (g.durationMin || 25) + " min" + (halfSec ? (' · half-time at ' + g.halfTimeMin + "'") : '');
+    formation.name + ' · ' + gameTotalMin(g) + " min" + (halfSec ? (' · half-time at ' + gameHalfTimeMin(g) + "'") : '');
 
   const body = document.getElementById('detail-body');
   let html = '';
