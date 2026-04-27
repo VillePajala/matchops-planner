@@ -413,27 +413,26 @@ button { border: none; background: none; color: inherit; cursor: pointer; }
 .pitch-card > * { position: relative; z-index: 1; }
 
 .pitch {
-  display: grid; grid-template-rows: repeat(6, auto); grid-template-columns: 1fr 1fr;
+  display: flex; flex-direction: column;
   gap: 6px;
   background: linear-gradient(to bottom, #4caf50, #388e3c);
   padding: 8px;
   border-radius: 4px;
   margin-bottom: 10px;
 }
+.pitch-row {
+  display: flex; justify-content: center; gap: 8px;
+  align-items: stretch;
+}
 .pos-box {
   background: rgba(0,0,0,0.18);
   border-radius: 4px;
   padding: 3px 4px 4px;
+  flex: 0 0 auto;
+  min-width: 92px;
+  max-width: 165px;
   width: 155px;
 }
-.pos-box.pos-st  { grid-row: 1; grid-column: 1 / 3; justify-self: center; }
-.pos-box.pos-cam { grid-row: 2; grid-column: 1 / 3; justify-self: center; }
-.pos-box.pos-lm  { grid-row: 3; grid-column: 1; justify-self: end; }
-.pos-box.pos-rm  { grid-row: 3; grid-column: 2; justify-self: start; }
-.pos-box.pos-cdm { grid-row: 4; grid-column: 1 / 3; justify-self: center; }
-.pos-box.pos-lb  { grid-row: 5; grid-column: 1; justify-self: end; }
-.pos-box.pos-rb  { grid-row: 5; grid-column: 2; justify-self: start; }
-.pos-box.pos-gk  { grid-row: 6; grid-column: 1 / 3; justify-self: center; }
 
 .pos-label {
   font-size: 8px; font-weight: 700;
@@ -444,7 +443,13 @@ button { border: none; background: none; color: inherit; cursor: pointer; }
 .pos-spacer { display: none; }
 .pos-name { display: inline; }
 
-.chip-row { display: flex; gap: 2px; }
+.chip-row { display: flex; gap: 2px; position: relative; min-height: 28px; }
+.chip-row .ht-divider {
+  position: absolute; top: -2px; bottom: -2px; width: 0;
+  border-left: 1px dashed rgba(255,255,255,0.55);
+  pointer-events: none;
+  z-index: 3;
+}
 
 /* ─── MatchOps planner chip: simple, clear, effective ─── */
 .slot {
@@ -463,19 +468,18 @@ button { border: none; background: none; color: inherit; cursor: pointer; }
   border: 1.5px solid #ccc;
   transition: transform 0.1s, border-color 0.15s;
 }
-.slot[data-half="h2"] {
+.slot[data-half="h2"], .slot[data-seg="sub"] {
   background: #fff3cd;
   border-color: #ffc107;
   color: #333;
 }
-.chip-row.full-game .slot[data-half="h1"] {
+.slot[data-seg="full"] {
   background: #d4edda;
   border-color: #28a745;
   color: #155724;
   font-weight: 600;
-  flex: 1;
 }
-.chip-row.full-game .slot[data-half="h2"] { display: none; }
+/* Legacy data-half rules removed; full-game styling now lives on the chip-row itself. */
 
 .slot:active { cursor: grabbing; transform: scale(0.96); }
 .slot.drag-over { border-color: #2d5; background: #c8e6c9; }
@@ -884,9 +888,267 @@ button { border: none; background: none; color: inherit; cursor: pointer; }
 }
 input[type="checkbox"] { accent-color: var(--success); cursor: pointer; }
 
+/* ══════════════════ Settings tab ══════════════════ */
+.settings-section { margin-bottom: 14px; }
+.settings-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+.settings-field label {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.6px;
+  text-transform: uppercase; color: var(--text-mute);
+}
+.settings-field input,
+.settings-field select {
+  padding: 9px 10px;
+  background: rgba(15,23,42,0.7);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  font-size: 14px;
+}
+.settings-field input:focus,
+.settings-field select:focus { outline: 1px solid var(--accent); border-color: var(--accent); }
+.settings-field .hint { font-size: 11px; color: var(--text-mute); }
+.game-settings-card {
+  border: 1px solid var(--border-soft);
+  border-radius: var(--r-md);
+  padding: 10px 12px 12px;
+  margin-bottom: 10px;
+  background: rgba(15,23,42,0.55);
+}
+.game-settings-card .gsc-head {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 13px; font-weight: 700; color: var(--accent);
+  margin-bottom: 8px;
+}
+.game-settings-card .gsc-head .gsc-actions { display: flex; gap: 4px; }
+.game-settings-card .gsc-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.game-settings-card .gsc-row .settings-field { flex: 1; min-width: 110px; margin-bottom: 8px; }
+.gsc-mini-btn {
+  width: 28px; height: 28px; border-radius: var(--r-sm);
+  background: transparent; color: var(--text-dim);
+  border: 1px solid var(--border-soft);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 700;
+}
+.gsc-mini-btn:hover { background: rgba(71,85,105,0.4); color: var(--text); }
+.gsc-mini-btn.danger:hover { background: rgba(239,68,68,0.2); color: #fca5a5; border-color: rgba(239,68,68,0.5); }
+
+/* ══════════════════ Detail overlay ══════════════════ */
+.detail-overlay {
+  position: fixed; inset: 0; z-index: 80;
+  background: linear-gradient(to bottom, var(--bg-panel-strong), rgba(15,23,42,0.99));
+  display: none;
+  flex-direction: column;
+  overflow-y: auto;
+  padding: 0;
+}
+.detail-overlay.open { display: flex; }
+.detail-header {
+  position: sticky; top: 0; z-index: 2;
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 14px;
+  padding-top: calc(12px + env(safe-area-inset-top));
+  background: linear-gradient(to bottom, rgba(30,41,59,0.98), rgba(15,23,42,0.95));
+  border-bottom: 1px solid var(--border);
+}
+.detail-header .dt-title { flex: 1; font-size: 16px; font-weight: 700; color: var(--accent); }
+.detail-header .dt-sub { font-size: 12px; color: var(--text-dim); }
+.detail-close {
+  width: 32px; height: 32px; border-radius: var(--r-sm);
+  background: var(--bg-elev); color: var(--text-dim);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 18px; font-weight: 800;
+}
+.detail-body { padding: 14px; }
+.detail-pitch-wrap {
+  position: relative;
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto 14px;
+  aspect-ratio: 0.66;
+  background: linear-gradient(to bottom, #4caf50, #388e3c);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.detail-pitch-wrap::before {
+  /* center circle + halfway line, subtle */
+  content: ''; position: absolute; left: 0; right: 0; top: 50%;
+  height: 1px; background: rgba(255,255,255,0.35);
+}
+.detail-disc {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  background: rgba(255,255,255,0.96);
+  color: #1e293b;
+  border: 2px solid #fff;
+  min-width: 64px; max-width: 96px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  font-size: 11px; font-weight: 700;
+  text-align: center;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+  white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+}
+.detail-disc .dd-role {
+  display: block;
+  font-size: 8px; font-weight: 800;
+  color: #64748b; letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+.detail-disc .dd-name {
+  display: block;
+  font-size: 11px; font-weight: 700;
+}
+.detail-scrubber {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px;
+  background: rgba(15,23,42,0.55);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--r-md);
+  margin-bottom: 12px;
+}
+.detail-scrubber input[type="range"] { flex: 1; }
+.detail-scrubber .dt-time {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700; color: var(--accent);
+  min-width: 64px; text-align: right;
+}
+.detail-timeline {
+  display: flex; flex-direction: column; gap: 5px;
+  padding: 10px 12px;
+  background: rgba(15,23,42,0.55);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--r-md);
+}
+.detail-timeline h4 {
+  margin: 0 0 4px; font-size: 10px; font-weight: 700;
+  color: var(--accent); text-transform: uppercase; letter-spacing: 1px;
+}
+.dt-track-row {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 11px;
+}
+.dt-track-row .dt-track-label {
+  flex: 0 0 46px;
+  font-weight: 700; color: var(--text-dim);
+  text-transform: uppercase; letter-spacing: 0.4px;
+}
+.dt-track {
+  position: relative; flex: 1; height: 22px;
+  background: rgba(0,0,0,0.35);
+  border-radius: 3px;
+  border: 1px solid var(--border-soft);
+}
+.dt-track .dt-seg {
+  position: absolute; top: 0; bottom: 0;
+  background: rgba(255,255,255,0.85); color: #1e293b;
+  border-right: 1px solid rgba(0,0,0,0.2);
+  font-size: 9px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+  padding: 0 3px;
+}
+.dt-track .dt-seg[data-seg="sub"] { background: #fff3cd; }
+.dt-track .dt-pin {
+  position: absolute; top: -3px; bottom: -3px;
+  width: 2px; background: var(--accent);
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.45);
+}
+.dt-track .dt-half {
+  position: absolute; top: 0; bottom: 0;
+  width: 0; border-left: 1px dashed rgba(255,255,255,0.45);
+}
+
+/* ══════════════════ Pitch card header (game label + open-detail button) ══════════════════ */
+.pitch-card-header {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.pitch-card-header .pitch-card-title {
+  font-size: 13px; font-weight: 700;
+  color: var(--text); letter-spacing: 0.3px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.pitch-card-header .pitch-detail-btn {
+  width: 32px; height: 32px;
+  flex-shrink: 0;
+}
+.pitch-card-header .pitch-detail-btn svg { width: 16px; height: 16px; }
+
+/* ══════════════════ Settings tab ══════════════════ */
+.settings-section {
+  display: flex; flex-direction: column; gap: 10px;
+  background: linear-gradient(to bottom, var(--bg-panel-soft), rgba(15,23,42,0.85));
+  border: 1px solid var(--border-soft);
+  border-radius: var(--r-md);
+  padding: 14px;
+  margin-bottom: 14px;
+  position: relative;
+  box-shadow: var(--shadow-md);
+}
+.settings-section h4 {
+  margin: 0 0 4px; font-size: 11px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.6px;
+  color: var(--text-mute);
+}
+.settings-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px;
+  background: rgba(15,23,42,0.5);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--r-sm);
+}
+.settings-row label {
+  font-size: 12px; font-weight: 600;
+  color: var(--text-dim);
+  min-width: 84px;
+}
+.settings-row input[type="text"],
+.settings-row input[type="number"],
+.settings-row select {
+  flex: 1;
+  padding: 6px 8px;
+  background: rgba(15,23,42,0.85);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  font-size: 13px;
+}
+.settings-game-row {
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) 60px 60px 60px auto;
+  gap: 6px; align-items: center;
+  padding: 8px 10px;
+  background: rgba(15,23,42,0.5);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--r-sm);
+}
+.settings-game-row input {
+  padding: 5px 6px;
+  background: rgba(15,23,42,0.85);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  font-size: 12px;
+  min-width: 0;
+}
+.settings-game-row .gr-num {
+  font-size: 10px; font-weight: 700;
+  color: var(--accent);
+  text-align: center;
+}
+.settings-game-row .gr-del {
+  width: 26px; height: 26px;
+  background: rgba(239,68,68,0.12);
+  border: 1px solid rgba(239,68,68,0.4);
+  color: #fca5a5;
+  border-radius: var(--r-sm);
+  display: inline-flex; align-items: center; justify-content: center;
+}
+
 /* ══════════════════ Narrow screens ══════════════════ */
 @media (max-width: 420px) {
-  .pos-box { width: 140px; padding: 3px 3px 4px; }
+  .pos-box { min-width: 92px; max-width: 150px; padding: 3px 3px 4px; }
   .pitch { gap: 5px; padding: 6px; }
   .ribbon-game { min-width: 112px; padding: 9px 32px 9px 12px; }
   .ribbon-game .ribbon-opp { font-size: 13px; }
@@ -949,7 +1211,25 @@ input[type="checkbox"] { accent-color: var(--success); cursor: pointer; }
     <div id="plans-view"></div>
   </section>
 
+  <!-- Settings tab -->
+  <section id="tab-settings" class="tab-panel">
+    <h2 class="section-title">Settings</h2>
+    <div id="settings-view"></div>
+  </section>
+
 </main>
+
+<!-- Detail overlay (per-game pitch + scrubber + timeline) -->
+<div id="detail-overlay" class="detail-overlay" role="dialog" aria-modal="true">
+  <div class="detail-header">
+    <div>
+      <div class="dt-title" id="detail-title"></div>
+      <div class="dt-sub" id="detail-sub"></div>
+    </div>
+    <button type="button" class="detail-close" id="detail-close" aria-label="Close">×</button>
+  </div>
+  <div class="detail-body" id="detail-body"></div>
+</div>
 
 <!-- ═══════════════════ Bottom nav ═══════════════════ -->
 <nav class="bottom-nav">
@@ -977,6 +1257,15 @@ input[type="checkbox"] { accent-color: var(--success); cursor: pointer; }
     </span>
     <span>Plans</span>
   </button>
+  <button class="nav-item" data-tab="settings">
+    <span class="nav-icon" aria-hidden="true">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+        <path d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.28Z"/>
+        <path d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/>
+      </svg>
+    </span>
+    <span>Settings</span>
+  </button>
 </nav>
 
 <!-- Bottom sheet -->
@@ -997,9 +1286,180 @@ input[type="checkbox"] { accent-color: var(--success); cursor: pointer; }
 const DEFAULT_PLAYERS = ['Verne','Petja','Jasper','Niilo H.','Jooa','Tiitus','Mikhail','Tomas','Alexandra','Onni','Roope'];
 const DEFAULT_PRIORITY = ['Onni','Jasper','Alexandra'];
 const ROSTER_KEY = 'matchops-planner-roster-v1';
-const POSITIONS = ['GK','LB','RB','CDM','LM','RM','CAM','ST'];
-const BENCH_KEYS = ['bench0','bench1','bench2'];
-const HALF_MIN = 750; // seconds per half
+const HALF_MIN = 750; // legacy: v2 half length in seconds (12:30)
+// Legacy v2 — kept for migration path only.
+const V2_POSITIONS = ['GK','LB','RB','CDM','LM','RM','CAM','ST'];
+const V2_BENCH_KEYS = ['bench0','bench1','bench2'];
+
+/* ══════════════════ Formation registry ══════════════════ */
+const FORMATIONS = [
+  // 3v3 (2 outfield + GK)
+  { id: '3v3-1-1', name: '1-1', fieldSize: '3v3', outfieldCount: 2,
+    roles: [
+      { name: 'GK',  relX: 0.50, relY: 0.95 },
+      { name: 'DEF', relX: 0.50, relY: 0.70 },
+      { name: 'ST',  relX: 0.50, relY: 0.35 },
+    ]},
+  { id: '3v3-2-0', name: '2-0', fieldSize: '3v3', outfieldCount: 2,
+    roles: [
+      { name: 'GK', relX: 0.50, relY: 0.95 },
+      { name: 'LM', relX: 0.25, relY: 0.55 },
+      { name: 'RM', relX: 0.75, relY: 0.55 },
+    ]},
+  // 5v5 (4 outfield + GK)
+  { id: '5v5-2-2', name: '2-2', fieldSize: '5v5', outfieldCount: 4,
+    roles: [
+      { name: 'GK', relX: 0.50, relY: 0.95 },
+      { name: 'LB', relX: 0.25, relY: 0.70 },
+      { name: 'RB', relX: 0.75, relY: 0.70 },
+      { name: 'LF', relX: 0.25, relY: 0.40 },
+      { name: 'RF', relX: 0.75, relY: 0.40 },
+    ]},
+  { id: '5v5-1-2-1', name: '1-2-1', fieldSize: '5v5', outfieldCount: 4,
+    roles: [
+      { name: 'GK',  relX: 0.50, relY: 0.95 },
+      { name: 'DEF', relX: 0.50, relY: 0.75 },
+      { name: 'LM',  relX: 0.25, relY: 0.50 },
+      { name: 'RM',  relX: 0.75, relY: 0.50 },
+      { name: 'ST',  relX: 0.50, relY: 0.25 },
+    ]},
+  { id: '5v5-3-1', name: '3-1', fieldSize: '5v5', outfieldCount: 4,
+    roles: [
+      { name: 'GK', relX: 0.50, relY: 0.95 },
+      { name: 'LB', relX: 0.15, relY: 0.65 },
+      { name: 'CB', relX: 0.50, relY: 0.65 },
+      { name: 'RB', relX: 0.85, relY: 0.65 },
+      { name: 'ST', relX: 0.50, relY: 0.30 },
+    ]},
+  { id: '5v5-2-1-1', name: '2-1-1', fieldSize: '5v5', outfieldCount: 4,
+    roles: [
+      { name: 'GK', relX: 0.50, relY: 0.95 },
+      { name: 'LB', relX: 0.25, relY: 0.70 },
+      { name: 'RB', relX: 0.75, relY: 0.70 },
+      { name: 'CM', relX: 0.50, relY: 0.50 },
+      { name: 'ST', relX: 0.50, relY: 0.28 },
+    ]},
+  // 8v8 (7 outfield + GK)
+  { id: '8v8-3-3-1', name: '3-3-1', fieldSize: '8v8', outfieldCount: 7,
+    roles: [
+      { name: 'GK', relX: 0.50, relY: 0.95 },
+      { name: 'LB', relX: 0.15, relY: 0.78 },
+      { name: 'CB', relX: 0.50, relY: 0.78 },
+      { name: 'RB', relX: 0.85, relY: 0.78 },
+      { name: 'LM', relX: 0.15, relY: 0.55 },
+      { name: 'CM', relX: 0.50, relY: 0.55 },
+      { name: 'RM', relX: 0.85, relY: 0.55 },
+      { name: 'ST', relX: 0.50, relY: 0.30 },
+    ]},
+  { id: '8v8-2-3-2', name: '2-3-2', fieldSize: '8v8', outfieldCount: 7,
+    roles: [
+      { name: 'GK', relX: 0.50, relY: 0.95 },
+      { name: 'LB', relX: 0.25, relY: 0.78 },
+      { name: 'RB', relX: 0.75, relY: 0.78 },
+      { name: 'LM', relX: 0.15, relY: 0.55 },
+      { name: 'CM', relX: 0.50, relY: 0.55 },
+      { name: 'RM', relX: 0.85, relY: 0.55 },
+      { name: 'LF', relX: 0.25, relY: 0.30 },
+      { name: 'RF', relX: 0.75, relY: 0.30 },
+    ]},
+  { id: '8v8-3-2-2', name: '3-2-2', fieldSize: '8v8', outfieldCount: 7,
+    roles: [
+      { name: 'GK', relX: 0.50, relY: 0.95 },
+      { name: 'LB', relX: 0.15, relY: 0.78 },
+      { name: 'CB', relX: 0.50, relY: 0.78 },
+      { name: 'RB', relX: 0.85, relY: 0.78 },
+      { name: 'LM', relX: 0.25, relY: 0.55 },
+      { name: 'RM', relX: 0.75, relY: 0.55 },
+      { name: 'LF', relX: 0.25, relY: 0.30 },
+      { name: 'RF', relX: 0.75, relY: 0.30 },
+    ]},
+  { id: '8v8-2-1-2-1-1', name: '2-1-2-1-1', fieldSize: '8v8', outfieldCount: 7,
+    roles: [
+      { name: 'GK',  relX: 0.50, relY: 0.95 },
+      { name: 'LB',  relX: 0.25, relY: 0.82 },
+      { name: 'RB',  relX: 0.75, relY: 0.82 },
+      { name: 'CDM', relX: 0.50, relY: 0.68 },
+      { name: 'LM',  relX: 0.25, relY: 0.52 },
+      { name: 'RM',  relX: 0.75, relY: 0.52 },
+      { name: 'CAM', relX: 0.50, relY: 0.38 },
+      { name: 'ST',  relX: 0.50, relY: 0.24 },
+    ]},
+  // 11v11 (10 outfield + GK)
+  { id: '11v11-4-3-3', name: '4-3-3', fieldSize: '11v11', outfieldCount: 10,
+    roles: [
+      { name: 'GK',  relX: 0.50, relY: 0.95 },
+      { name: 'LB',  relX: 0.10, relY: 0.80 },
+      { name: 'LCB', relX: 0.37, relY: 0.80 },
+      { name: 'RCB', relX: 0.63, relY: 0.80 },
+      { name: 'RB',  relX: 0.90, relY: 0.80 },
+      { name: 'LCM', relX: 0.20, relY: 0.55 },
+      { name: 'CM',  relX: 0.50, relY: 0.55 },
+      { name: 'RCM', relX: 0.80, relY: 0.55 },
+      { name: 'LW',  relX: 0.15, relY: 0.30 },
+      { name: 'ST',  relX: 0.50, relY: 0.30 },
+      { name: 'RW',  relX: 0.85, relY: 0.30 },
+    ]},
+  { id: '11v11-4-4-2', name: '4-4-2', fieldSize: '11v11', outfieldCount: 10,
+    roles: [
+      { name: 'GK',  relX: 0.50, relY: 0.95 },
+      { name: 'LB',  relX: 0.10, relY: 0.80 },
+      { name: 'LCB', relX: 0.37, relY: 0.80 },
+      { name: 'RCB', relX: 0.63, relY: 0.80 },
+      { name: 'RB',  relX: 0.90, relY: 0.80 },
+      { name: 'LM',  relX: 0.10, relY: 0.55 },
+      { name: 'LCM', relX: 0.37, relY: 0.55 },
+      { name: 'RCM', relX: 0.63, relY: 0.55 },
+      { name: 'RM',  relX: 0.90, relY: 0.55 },
+      { name: 'LF',  relX: 0.30, relY: 0.30 },
+      { name: 'RF',  relX: 0.70, relY: 0.30 },
+    ]},
+  { id: '11v11-3-5-2', name: '3-5-2', fieldSize: '11v11', outfieldCount: 10,
+    roles: [
+      { name: 'GK',  relX: 0.50, relY: 0.95 },
+      { name: 'LB',  relX: 0.15, relY: 0.80 },
+      { name: 'CB',  relX: 0.50, relY: 0.80 },
+      { name: 'RB',  relX: 0.85, relY: 0.80 },
+      { name: 'LWB', relX: 0.10, relY: 0.55 },
+      { name: 'LCM', relX: 0.30, relY: 0.55 },
+      { name: 'CM',  relX: 0.50, relY: 0.55 },
+      { name: 'RCM', relX: 0.70, relY: 0.55 },
+      { name: 'RWB', relX: 0.90, relY: 0.55 },
+      { name: 'LF',  relX: 0.30, relY: 0.30 },
+      { name: 'RF',  relX: 0.70, relY: 0.30 },
+    ]},
+  { id: '11v11-4-2-3-1', name: '4-2-3-1', fieldSize: '11v11', outfieldCount: 10,
+    roles: [
+      { name: 'GK',  relX: 0.50, relY: 0.95 },
+      { name: 'LB',  relX: 0.10, relY: 0.82 },
+      { name: 'LCB', relX: 0.37, relY: 0.82 },
+      { name: 'RCB', relX: 0.63, relY: 0.82 },
+      { name: 'RB',  relX: 0.90, relY: 0.82 },
+      { name: 'LDM', relX: 0.35, relY: 0.65 },
+      { name: 'RDM', relX: 0.65, relY: 0.65 },
+      { name: 'LAM', relX: 0.20, relY: 0.45 },
+      { name: 'CAM', relX: 0.50, relY: 0.45 },
+      { name: 'RAM', relX: 0.80, relY: 0.45 },
+      { name: 'ST',  relX: 0.50, relY: 0.25 },
+    ]},
+];
+function getFormation(id) { return FORMATIONS.find(f => f.id === id) || FORMATIONS.find(f => f.id === '8v8-2-1-2-1-1'); }
+function formationRoleNames(formation) { return formation.roles.map(r => r.name); }
+// Group roles into rows (top-of-pitch first, GK as last bottom row).
+// Roles within tolerance ±0.04 in relY count as the same row; rows sort
+// ascending by mean relY; within a row roles sort ascending by relX.
+function formationRows(formation) {
+  const tol = 0.04;
+  const sorted = formation.roles.slice().sort((a, b) => a.relY - b.relY);
+  const rows = [];
+  for (const r of sorted) {
+    const row = rows.find(R => Math.abs(R.relY - r.relY) <= tol);
+    if (row) { row.roles.push(r); row.relY = (row.relY * row.roles.length + r.relY) / (row.roles.length + 1); }
+    else rows.push({ relY: r.relY, roles: [r] });
+  }
+  rows.forEach(R => R.roles.sort((a, b) => a.relX - b.relX));
+  rows.sort((a, b) => a.relY - b.relY);
+  return rows;
+}
 
 const _loadedRoster = (() => {
   try {
@@ -1022,7 +1482,9 @@ function saveRoster() {
   try { localStorage.setItem(ROSTER_KEY, JSON.stringify({ players: PLAYERS, priority: Array.from(PRIORITY) })); } catch (_) {}
 }
 
-const SCHEDULE = [
+// Legacy v2 schedule — used as a migration source for time/field/opponent fields
+// when upgrading old saved state. Do NOT reference at runtime.
+const V2_SCHEDULE = [
   { time: '09:30', field: 'TN1', opp: 'FC Lahti' },
   { time: '11:30', field: 'TN2', opp: 'Lautp' },
   { time: '13:00', field: 'TN1', opp: 'FC Lahti 2' },
@@ -1030,33 +1492,115 @@ const SCHEDULE = [
   { time: 'TBD',   field: 'TBD', opp: 'Placement' },
 ];
 
-const SEED = [
-  { h1:{GK:'Verne',LB:'Niilo H.',RB:'Jooa',CDM:'Roope',LM:'Mikhail',RM:'Onni',CAM:'Petja',ST:'Alexandra',bench0:'Jasper',bench1:'Tiitus',bench2:'Tomas'},
-    h2:{GK:'Verne',LB:'Niilo H.',RB:'Jooa',CDM:'Tomas',LM:'Jasper',RM:'Onni',CAM:'Tiitus',ST:'Mikhail',bench0:'Roope',bench1:'Alexandra',bench2:'Petja'} },
-  { h1:{GK:'Petja',LB:'Tomas',RB:'Niilo H.',CDM:'Verne',LM:'Alexandra',RM:'Onni',CAM:'Tiitus',ST:'Mikhail',bench0:'Roope',bench1:'Jooa',bench2:'Jasper'},
-    h2:{GK:'Petja',LB:'Tomas',RB:'Jooa',CDM:'Roope',LM:'Alexandra',RM:'Jasper',CAM:'Tiitus',ST:'Mikhail',bench0:'Verne',bench1:'Niilo H.',bench2:'Onni'} },
-  { h1:{GK:'Verne',LB:'Tomas',RB:'Niilo H.',CDM:'Roope',LM:'Alexandra',RM:'Onni',CAM:'Jasper',ST:'Mikhail',bench0:'Petja',bench1:'Jooa',bench2:'Tiitus'},
-    h2:{GK:'Verne',LB:'Petja',RB:'Jooa',CDM:'Roope',LM:'Alexandra',RM:'Onni',CAM:'Jasper',ST:'Tiitus',bench0:'Tomas',bench1:'Niilo H.',bench2:'Mikhail'} },
-  { h1:{GK:'Verne',LB:'Petja',RB:'Niilo H.',CDM:'Jooa',LM:'Roope',RM:'Onni',CAM:'Tiitus',ST:'Mikhail',bench0:'Tomas',bench1:'Jasper',bench2:'Alexandra'},
-    h2:{GK:'Verne',LB:'Tomas',RB:'Niilo H.',CDM:'Jooa',LM:'Alexandra',RM:'Onni',CAM:'Jasper',ST:'Mikhail',bench0:'Petja',bench1:'Roope',bench2:'Tiitus'} },
-  { h1:{GK:'Jasper',LB:'Petja',RB:'Niilo H.',CDM:'Roope',LM:'Alexandra',RM:'Onni',CAM:'Tiitus',ST:'Mikhail',bench0:'Verne',bench1:'Jooa',bench2:'Tomas'},
-    h2:{GK:'Jasper',LB:'Petja',RB:'Jooa',CDM:'Roope',LM:'Alexandra',RM:'Mikhail',CAM:'Tiitus',ST:'Tomas',bench0:'Verne',bench1:'Niilo H.',bench2:'Onni'} },
-];
+// Default v3 seed: matches the original 5-game · 8v8 2-1-2-1-1 · 25min·sub@12:30 plan
+function buildSeedTournament() {
+  const seedH1 = [
+    {GK:'Verne',LB:'Niilo H.',RB:'Jooa',CDM:'Roope',LM:'Mikhail',RM:'Onni',CAM:'Petja',ST:'Alexandra'},
+    {GK:'Petja',LB:'Tomas',RB:'Niilo H.',CDM:'Verne',LM:'Alexandra',RM:'Onni',CAM:'Tiitus',ST:'Mikhail'},
+    {GK:'Verne',LB:'Tomas',RB:'Niilo H.',CDM:'Roope',LM:'Alexandra',RM:'Onni',CAM:'Jasper',ST:'Mikhail'},
+    {GK:'Verne',LB:'Petja',RB:'Niilo H.',CDM:'Jooa',LM:'Roope',RM:'Onni',CAM:'Tiitus',ST:'Mikhail'},
+    {GK:'Jasper',LB:'Petja',RB:'Niilo H.',CDM:'Roope',LM:'Alexandra',RM:'Onni',CAM:'Tiitus',ST:'Mikhail'},
+  ];
+  const seedH2 = [
+    {GK:'Verne',LB:'Niilo H.',RB:'Jooa',CDM:'Tomas',LM:'Jasper',RM:'Onni',CAM:'Tiitus',ST:'Mikhail'},
+    {GK:'Petja',LB:'Tomas',RB:'Jooa',CDM:'Roope',LM:'Alexandra',RM:'Jasper',CAM:'Tiitus',ST:'Mikhail'},
+    {GK:'Verne',LB:'Petja',RB:'Jooa',CDM:'Roope',LM:'Alexandra',RM:'Onni',CAM:'Jasper',ST:'Tiitus'},
+    {GK:'Verne',LB:'Tomas',RB:'Niilo H.',CDM:'Jooa',LM:'Alexandra',RM:'Onni',CAM:'Jasper',ST:'Mikhail'},
+    {GK:'Jasper',LB:'Petja',RB:'Jooa',CDM:'Roope',LM:'Alexandra',RM:'Mikhail',CAM:'Tiitus',ST:'Tomas'},
+  ];
+  const games = [];
+  for (let i = 0; i < 5; i++) {
+    const startingXI = {};
+    for (const role of V2_POSITIONS) startingXI[role] = seedH1[i][role];
+    const subs = [];
+    for (const role of V2_POSITIONS) {
+      if (seedH1[i][role] !== seedH2[i][role]) {
+        subs.push({
+          id: 'sub_' + Math.random().toString(36).slice(2, 10),
+          timeSec: 750, role,
+          outPlayer: seedH1[i][role],
+          inPlayer: seedH2[i][role],
+        });
+      }
+    }
+    games.push({
+      id: 'g' + (i + 1),
+      label: 'Game ' + (i + 1),
+      time: V2_SCHEDULE[i].time,
+      field: V2_SCHEDULE[i].field,
+      opponent: V2_SCHEDULE[i].opp,
+      durationMin: 25,
+      halfTimeMin: 12.5,
+      startingXI,
+      scheduledSubs: subs,
+    });
+  }
+  return {
+    teamName: 'Pepo Violetti',
+    formationId: '8v8-2-1-2-1-1',
+    rosterSize: 11,
+    games,
+  };
+}
 
-const STORAGE_KEY = 'matchops-planner-state-v2';
+const STORAGE_KEY_V3 = 'matchops-planner-state-v3';
+const STORAGE_KEY_V2 = 'matchops-planner-state-v2';
 const VERSIONS_KEY = 'matchops-planner-versions-v1';
-const DEFAULT_INCLUDED = [true, true, true, true, true];
+const DEFAULT_INCLUDED_LEN = 5;
+function defaultIncluded(n) { return new Array(n).fill(true); }
+
+/* ══════════════════ Migration v2 → v3 ══════════════════ */
+function migrateV2ToV3(v2) {
+  if (!v2 || !Array.isArray(v2.games)) return null;
+  const games = v2.games.map((g, i) => {
+    const startingXI = {};
+    for (const role of V2_POSITIONS) startingXI[role] = (g && g.h1 && typeof g.h1[role] === 'string') ? g.h1[role] : '';
+    const scheduledSubs = [];
+    for (const role of V2_POSITIONS) {
+      const a = g && g.h1 ? g.h1[role] : '';
+      const b = g && g.h2 ? g.h2[role] : '';
+      if (a && b && a !== b) {
+        scheduledSubs.push({
+          id: 'sub_' + Math.random().toString(36).slice(2, 10),
+          timeSec: 750, role,
+          outPlayer: a, inPlayer: b,
+        });
+      }
+    }
+    return {
+      id: 'g' + (i + 1),
+      label: 'Game ' + (i + 1),
+      time: V2_SCHEDULE[i] ? V2_SCHEDULE[i].time : '',
+      field: V2_SCHEDULE[i] ? V2_SCHEDULE[i].field : '',
+      opponent: V2_SCHEDULE[i] ? V2_SCHEDULE[i].opp : 'Opponent',
+      durationMin: 25,
+      halfTimeMin: 12.5,
+      startingXI,
+      scheduledSubs,
+    };
+  });
+  return {
+    teamName: 'Pepo Violetti',
+    formationId: '8v8-2-1-2-1-1',
+    rosterSize: 11,
+    games,
+  };
+}
 
 /* ══════════════════ State ══════════════════ */
 const loaded = loadAll();
-let state = loaded.games;
+let tournament = loaded.tournament;
 let included = loaded.included;
 let currentVersionName = loaded.currentVersionName;
-let benchOpenFor = null;     // which game index has bench expanded (null = collapsed)
 let activeGame = 0;          // which game the ribbon is focused on
-let activeTab = 'games';     // 'games' | 'minutes' | 'plans'
+let activeTab = 'games';     // 'games' | 'minutes' | 'plans' | 'settings'
 const highlightedPlayers = new Set();
-let tapSelected = null;      // { game, half, key }
+let tapSelected = null;      // { game, role, startSec }
+let benchOpenFor = null;     // legacy, retained for collapsed bench drawer per game
+
+// Detail overlay state
+let detailGameIdx = -1;
+let detailScrubSec = 0;
 
 // Undo/redo history
 const history = [];
@@ -1064,7 +1608,7 @@ let historyIndex = -1;
 const HISTORY_MAX = 40;
 
 function snapshotStateForHistory() {
-  return { games: JSON.parse(JSON.stringify(state)), included: included.slice() };
+  return { tournament: JSON.parse(JSON.stringify(tournament)), included: included.slice() };
 }
 function pushHistory() {
   history.splice(historyIndex + 1);
@@ -1074,7 +1618,7 @@ function pushHistory() {
   renderActiveTab();
 }
 function applyHistorySnapshot(snap) {
-  state = JSON.parse(JSON.stringify(snap.games));
+  tournament = JSON.parse(JSON.stringify(snap.tournament));
   included = snap.included.slice();
   saveAll();
   renderActiveTab();
@@ -1084,31 +1628,80 @@ function redo() { if (historyIndex < history.length - 1) { historyIndex++; apply
 pushHistory(); // initial state
 
 /* ══════════════════ Persistence ══════════════════ */
-let loadWarning = null; // Surfaced once on first refreshStateBanner()
+let loadWarning = null;
+function _normalizeIncluded(arr, n) {
+  if (!Array.isArray(arr)) return defaultIncluded(n);
+  const out = arr.slice(0, n).map(Boolean);
+  while (out.length < n) out.push(true);
+  return out;
+}
 function loadAll() {
+  // 1. Try v3
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(STORAGE_KEY_V3);
     if (raw) {
       const p = JSON.parse(raw);
-      if (p && hasValidShape(p.games)) {
+      if (p && hasValidTournament(p.tournament)) {
+        const n = p.tournament.games.length;
         return {
-          games: p.games,
-          included: Array.isArray(p.included) ? p.included.slice(0,5).concat(DEFAULT_INCLUDED.slice(p.included.length)) : DEFAULT_INCLUDED.slice(),
+          tournament: p.tournament,
+          included: _normalizeIncluded(p.included, n),
           currentVersionName: typeof p.currentVersionName === 'string' ? p.currentVersionName : null,
         };
       }
       loadWarning = { message: 'Saved plan has an unrecognised shape — reverted to default. Import a backup (Plans → Backup) to recover.' };
-      try { console.warn('matchops-planner: stored state failed structural validation, falling back to seed'); } catch (_) {}
+      try { console.warn('matchops-planner: v3 state failed structural validation, falling back'); } catch (_) {}
     }
   } catch (e) {
     loadWarning = { message: 'Could not read saved plan (' + e.message + ') — reverted to default.' };
-    try { console.warn('matchops-planner: stored state parse error, falling back to seed', e); } catch (_) {}
+    try { console.warn('matchops-planner: v3 parse error', e); } catch (_) {}
   }
-  return { games: JSON.parse(JSON.stringify(SEED)), included: DEFAULT_INCLUDED.slice(), currentVersionName: null };
+  // 2. Try migrating v2 (do NOT delete it)
+  try {
+    const rawV2 = localStorage.getItem(STORAGE_KEY_V2);
+    if (rawV2) {
+      const p2 = JSON.parse(rawV2);
+      const t = migrateV2ToV3(p2);
+      if (t && hasValidTournament(t)) {
+        const n = t.games.length;
+        const inc = _normalizeIncluded(p2 && p2.included, n);
+        const versionsRaw = (() => { try { return JSON.parse(localStorage.getItem(VERSIONS_KEY) || '{}'); } catch (_) { return {}; } })();
+        // also migrate any v2-shape versions in place
+        let touched = false;
+        for (const name of Object.keys(versionsRaw)) {
+          const v = versionsRaw[name];
+          if (v && Array.isArray(v.games) && !v.tournament) {
+            const tt = migrateV2ToV3({ games: v.games });
+            if (tt) {
+              versionsRaw[name] = {
+                tournament: tt,
+                included: _normalizeIncluded(v.included, tt.games.length),
+                savedAt: v.savedAt || new Date().toISOString(),
+              };
+              touched = true;
+            }
+          }
+        }
+        if (touched) try { localStorage.setItem(VERSIONS_KEY, JSON.stringify(versionsRaw)); } catch (_) {}
+        const cur = (p2 && typeof p2.currentVersionName === 'string') ? p2.currentVersionName : null;
+        // Persist the new v3 snapshot immediately (keep v2 in place — rollback safety)
+        try {
+          localStorage.setItem(STORAGE_KEY_V3, JSON.stringify({
+            tournament: t, included: inc, currentVersionName: cur,
+            savedAt: new Date().toISOString(),
+          }));
+        } catch (_) {}
+        return { tournament: t, included: inc, currentVersionName: cur };
+      }
+    }
+  } catch (e) {
+    try { console.warn('matchops-planner: v2 migration failed', e); } catch (_) {}
+  }
+  return { tournament: buildSeedTournament(), included: defaultIncluded(DEFAULT_INCLUDED_LEN), currentVersionName: null };
 }
 function saveAll() {
-  const snapshot = { games: state, included, currentVersionName, savedAt: new Date().toISOString() };
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
+  const snapshot = { tournament, included, currentVersionName, savedAt: new Date().toISOString() };
+  try { localStorage.setItem(STORAGE_KEY_V3, JSON.stringify(snapshot)); } catch (_) {}
   showSaved(); updateVersionBadge();
 }
 let saveStatusTimer = null;
@@ -1129,7 +1722,11 @@ function loadVersions() {
 }
 function saveVersionsMap(m) { localStorage.setItem(VERSIONS_KEY, JSON.stringify(m)); }
 function snapshotForVersion() {
-  return { games: JSON.parse(JSON.stringify(state)), included: included.slice(), savedAt: new Date().toISOString() };
+  return {
+    tournament: JSON.parse(JSON.stringify(tournament)),
+    included: included.slice(),
+    savedAt: new Date().toISOString(),
+  };
 }
 function saveVersion(name, silent) {
   const m = loadVersions();
@@ -1157,51 +1754,61 @@ function renameVersion(oldName) {
 function applyVersion(name) {
   const m = loadVersions(); const v = m[name]; if (!v) return;
   if (!confirm('Load "' + name + '"? Your current state will be replaced.')) return;
-  state = JSON.parse(JSON.stringify(v.games));
-  included = (v.included || DEFAULT_INCLUDED).slice(0,5);
-  while (included.length < 5) included.push(true);
+  if (!v.tournament || !hasValidTournament(v.tournament)) {
+    alert('Saved version "' + name + '" has an invalid shape — cannot load.');
+    return;
+  }
+  tournament = JSON.parse(JSON.stringify(v.tournament));
+  included = _normalizeIncluded(v.included, tournament.games.length);
   currentVersionName = name;
   highlightedPlayers.clear();
+  if (activeGame >= tournament.games.length) activeGame = 0;
   saveAll(); pushHistory(); renderActiveTab(); refreshStateBanner();
 }
 function revertToSaved() {
   if (!currentVersionName) return;
   const v = loadVersions()[currentVersionName];
-  if (!v) return;
+  if (!v || !hasValidTournament(v.tournament)) return;
   if (!confirm('Discard unsaved edits and revert to saved "' + currentVersionName + '"?')) return;
-  state = JSON.parse(JSON.stringify(v.games));
-  included = (v.included || DEFAULT_INCLUDED).slice(0,5);
-  while (included.length < 5) included.push(true);
+  tournament = JSON.parse(JSON.stringify(v.tournament));
+  included = _normalizeIncluded(v.included, tournament.games.length);
+  if (activeGame >= tournament.games.length) activeGame = 0;
   saveAll(); pushHistory(); renderActiveTab(); refreshStateBanner();
 }
 function isWorkingCopyDirty() {
   if (!currentVersionName) return false;
   const v = loadVersions()[currentVersionName];
-  if (!v) return false;
-  const savedIncluded = Array.isArray(v.included) ? v.included : DEFAULT_INCLUDED;
-  return JSON.stringify(v.games) !== JSON.stringify(state)
+  if (!v || !v.tournament) return false;
+  const savedIncluded = Array.isArray(v.included) ? v.included : defaultIncluded(tournament.games.length);
+  return JSON.stringify(v.tournament) !== JSON.stringify(tournament)
       || JSON.stringify(savedIncluded) !== JSON.stringify(included);
 }
 
 /* ══════════════════ Roster edits ══════════════════ */
-function rewriteNameInGames(games, oldName, newName) {
-  for (const g of games) {
+function rewriteNameInTournament(t, oldName, newName) {
+  if (!t || !Array.isArray(t.games)) return;
+  for (const g of t.games) {
     if (!g) continue;
-    for (const half of ['h1','h2']) {
-      const h = g[half]; if (!h) continue;
-      for (const k of POSITIONS.concat(BENCH_KEYS)) {
-        if (h[k] === oldName) h[k] = newName;
+    if (g.startingXI && typeof g.startingXI === 'object') {
+      for (const role of Object.keys(g.startingXI)) {
+        if (g.startingXI[role] === oldName) g.startingXI[role] = newName;
+      }
+    }
+    if (Array.isArray(g.scheduledSubs)) {
+      for (const s of g.scheduledSubs) {
+        if (s.outPlayer === oldName) s.outPlayer = newName;
+        if (s.inPlayer === oldName) s.inPlayer = newName;
       }
     }
   }
 }
 function applyNameRewrite(oldName, newName) {
-  rewriteNameInGames(state, oldName, newName);
+  rewriteNameInTournament(tournament, oldName, newName);
   const versions = loadVersions();
   let touched = false;
   for (const n of Object.keys(versions)) {
     const v = versions[n];
-    if (v && Array.isArray(v.games)) { rewriteNameInGames(v.games, oldName, newName); touched = true; }
+    if (v && v.tournament) { rewriteNameInTournament(v.tournament, oldName, newName); touched = true; }
   }
   if (touched) saveVersionsMap(versions);
   if (highlightedPlayers.has(oldName)) {
@@ -1245,75 +1852,167 @@ function escapeHtml(s) {
 }
 let VALID_PLAYERS_SET = new Set(PLAYERS);
 function rebuildValidPlayersSet() { VALID_PLAYERS_SET = new Set(PLAYERS); }
-function hasValidShape(games) {
-  // Structural check only: 5 games, each with h1/h2 objects whose slots are
-  // strings. Does NOT require slot values to match the current roster — an
-  // unknown name is recoverable via Roster → Rename / Resolve.
-  if (!Array.isArray(games) || games.length !== 5) return false;
-  for (const g of games) {
+function hasValidShape(t) {
+  if (!t || typeof t !== 'object') return false;
+  if (!Array.isArray(t.games) || t.games.length === 0) return false;
+  const formation = getFormation(t.formationId);
+  if (!formation) return false;
+  const validRoles = new Set(formation.roles.map(r => r.name));
+  for (const g of t.games) {
     if (!g || typeof g !== 'object') return false;
-    for (const half of ['h1', 'h2']) {
-      const h = g[half];
-      if (!h || typeof h !== 'object') return false;
-      for (const k of POSITIONS.concat(BENCH_KEYS)) {
-        if (typeof h[k] !== 'string') return false;
-      }
+    if (!g.startingXI || typeof g.startingXI !== 'object') return false;
+    for (const role of validRoles) {
+      if (typeof g.startingXI[role] !== 'string') return false;
+    }
+    if (!Array.isArray(g.scheduledSubs)) return false;
+    for (const s of g.scheduledSubs) {
+      if (!s || typeof s !== 'object') return false;
+      if (!validRoles.has(s.role)) return false;
+      if (typeof s.timeSec !== 'number' || s.timeSec < 0) return false;
+      if (typeof s.outPlayer !== 'string' || typeof s.inPlayer !== 'string') return false;
     }
   }
   return true;
 }
-function collectUnknownPlayers(games) {
-  if (!hasValidShape(games)) return [];
+function collectUnknownPlayers(t) {
+  if (!hasValidShape(t)) return [];
   const set = new Set();
-  for (const g of games) {
-    for (const half of ['h1', 'h2']) {
-      for (const k of POSITIONS.concat(BENCH_KEYS)) {
-        const v = g[half][k];
-        if (v !== '' && !VALID_PLAYERS_SET.has(v)) set.add(v);
-      }
+  for (const g of t.games) {
+    for (const role of Object.keys(g.startingXI)) {
+      const v = g.startingXI[role];
+      if (v && !VALID_PLAYERS_SET.has(v)) set.add(v);
+    }
+    for (const s of g.scheduledSubs) {
+      if (s.inPlayer && !VALID_PLAYERS_SET.has(s.inPlayer)) set.add(s.inPlayer);
+      if (s.outPlayer && !VALID_PLAYERS_SET.has(s.outPlayer)) set.add(s.outPlayer);
     }
   }
   return Array.from(set);
 }
-function validateGamesShape(games) {
-  // Strict: structure + roster membership. Used at trust boundaries where
-  // unknown strings must never enter state (e.g. URL-hash import).
-  return hasValidShape(games) && collectUnknownPlayers(games).length === 0;
+function validateGamesShape(t) {
+  return hasValidShape(t) && collectUnknownPlayers(t).length === 0;
 }
-function findKeyInHalf(g, half, player, excludeKey) {
-  for (const p of POSITIONS) if (p !== excludeKey && g[half][p] === player) return p;
-  for (const b of BENCH_KEYS) if (b !== excludeKey && g[half][b] === player) return b;
-  return null;
+
+/* Walk scheduledSubs at one role to produce contiguous segments. */
+function getCellSegments(game, role) {
+  const durationSec = (game.durationMin || 25) * 60;
+  const subs = (game.scheduledSubs || [])
+    .filter(s => s.role === role)
+    .slice()
+    .sort((a, b) => a.timeSec - b.timeSec);
+  const segs = [];
+  let curPlayer = game.startingXI[role] || '';
+  let curStart = 0;
+  let idx = 0;
+  for (const s of subs) {
+    const t = Math.max(curStart, Math.min(durationSec, s.timeSec));
+    if (t > curStart) {
+      segs.push({ startSec: curStart, endSec: t, player: curPlayer, segIdx: idx++ });
+    }
+    curPlayer = s.inPlayer || '';
+    curStart = t;
+  }
+  if (durationSec > curStart) {
+    segs.push({ startSec: curStart, endSec: durationSec, player: curPlayer, segIdx: idx });
+  }
+  return segs;
 }
-function playerMinsPerGame(player, gameIdx) {
-  const g = state[gameIdx]; let secs = 0;
-  for (const half of ['h1','h2']) for (const pos of POSITIONS) if (g[half][pos] === player) { secs += HALF_MIN; break; }
+function playerAtRoleSec(game, role, sec) {
+  for (const seg of getCellSegments(game, role)) {
+    if (sec >= seg.startSec && sec < seg.endSec) return seg.player;
+  }
+  return game.startingXI[role] || '';
+}
+function fieldAtSec(game, sec) {
+  const out = {};
+  for (const role of Object.keys(game.startingXI)) {
+    out[role] = playerAtRoleSec(game, role, sec);
+  }
+  return out;
+}
+function benchAtSec(game, sec) {
+  const onField = new Set(Object.values(fieldAtSec(game, sec)).filter(Boolean));
+  return PLAYERS.filter(p => !onField.has(p));
+}
+function playersOnFieldThisGame(game) {
+  const set = new Set();
+  for (const role of Object.keys(game.startingXI)) {
+    if (game.startingXI[role]) set.add(game.startingXI[role]);
+  }
+  for (const s of (game.scheduledSubs || [])) {
+    if (s.inPlayer) set.add(s.inPlayer);
+  }
+  return set;
+}
+function playerSecondsInGame(player, gameIdx) {
+  const g = tournament.games[gameIdx];
+  if (!g) return 0;
+  let secs = 0;
+  for (const role of Object.keys(g.startingXI)) {
+    for (const seg of getCellSegments(g, role)) {
+      if (seg.player === player) secs += (seg.endSec - seg.startSec);
+    }
+  }
   return secs;
 }
+function playerMinsPerGame(player, gameIdx) { return playerSecondsInGame(player, gameIdx); }
 function playerGamePositions(player, gameIdx) {
-  const g = state[gameIdx];
-  const h1 = POSITIONS.find(p => g.h1[p] === player) || null;
-  const h2 = POSITIONS.find(p => g.h2[p] === player) || null;
-  if (!h1 && !h2) return { text: null };       // bench both halves
-  if (h1 && h2 && h1 === h2) return { text: h1 }; // full at one position
-  if (h1 && h2) return { text: h1 + '/' + h2 };   // plays-both: two positions
-  return { text: (h1 || h2) + '\u00b7' + (h1 ? '1' : '2') }; // half only
+  const g = tournament.games[gameIdx];
+  if (!g) return { text: null };
+  const totalSec = (g.durationMin || 25) * 60;
+  const slices = [];
+  for (const role of Object.keys(g.startingXI)) {
+    for (const seg of getCellSegments(g, role)) {
+      if (seg.player === player) slices.push({ role: role, startSec: seg.startSec, endSec: seg.endSec });
+    }
+  }
+  if (slices.length === 0) return { text: null };
+  if (slices.length === 1 && slices[0].endSec - slices[0].startSec >= totalSec - 1) {
+    return { text: slices[0].role };
+  }
+  slices.sort((a, b) => a.startSec - b.startSec);
+  const roleSeq = [];
+  for (const sl of slices) {
+    if (roleSeq.length === 0 || roleSeq[roleSeq.length - 1] !== sl.role) roleSeq.push(sl.role);
+  }
+  if (roleSeq.length === 1) return { text: roleSeq[0] };
+  return { text: roleSeq.join('/') };
 }
 function playerGKInGame(player, gameIdx) {
-  const g = state[gameIdx];
-  const h1 = g.h1.GK === player, h2 = g.h2.GK === player;
-  if (h1 && h2) return 'full'; if (h1) return 'h1'; if (h2) return 'h2'; return null;
+  const g = tournament.games[gameIdx];
+  if (!g) return null;
+  const segs = getCellSegments(g, 'GK');
+  if (segs.length === 0) return null;
+  const totalSec = (g.durationMin || 25) * 60;
+  let asGK = 0;
+  for (const seg of segs) if (seg.player === player) asGK += (seg.endSec - seg.startSec);
+  if (asGK <= 0) return null;
+  return asGK >= totalSec - 1 ? 'full' : 'partial';
 }
 function playerTotalSec(player) {
-  return [0,1,2,3,4].reduce((s,i) => s + (included[i] ? playerMinsPerGame(player,i) : 0), 0);
+  let s = 0;
+  for (let i = 0; i < tournament.games.length; i++) {
+    if (included[i]) s += playerSecondsInGame(player, i);
+  }
+  return s;
 }
 function playerTotalSecAll(player) {
-  return [0,1,2,3,4].reduce((s,i) => s + playerMinsPerGame(player,i), 0);
+  let s = 0;
+  for (let i = 0; i < tournament.games.length; i++) s += playerSecondsInGame(player, i);
+  return s;
 }
 function playerRatio(player) {
-  const active = included.filter(Boolean).length;
-  if (!active) return null;
-  const expected = 12000 * active / 11;
+  const formation = getFormation(tournament.formationId);
+  const onFieldCount = formation.roles.length;
+  const rosterSize = Math.max(onFieldCount, tournament.rosterSize || PLAYERS.length);
+  let total = 0;
+  for (let i = 0; i < tournament.games.length; i++) {
+    if (!included[i]) continue;
+    const d = (tournament.games[i].durationMin || 25) * 60;
+    total += d * onFieldCount;
+  }
+  if (total <= 0) return null;
+  const expected = total / rosterSize;
   return playerTotalSec(player) / expected;
 }
 function hueForRatio(r) {
@@ -1330,12 +2029,11 @@ function ratioColors(r) {
 }
 function formatMin(sec) { const m = Math.floor(sec/60), s = sec%60; return m + ':' + s.toString().padStart(2,'0'); }
 function benchedBothHalves(gi) {
-  const g = state[gi];
-  const b1 = new Set(BENCH_KEYS.map(k => g.h1[k]).filter(Boolean));
-  const b2 = new Set(BENCH_KEYS.map(k => g.h2[k]).filter(Boolean));
-  const f1 = new Set(POSITIONS.map(p => g.h1[p]).filter(Boolean));
-  const f2 = new Set(POSITIONS.map(p => g.h2[p]).filter(Boolean));
-  return [...b1].filter(p => b2.has(p) && !f1.has(p) && !f2.has(p));
+  // Renamed semantics for the new model: players who never appear on the field this game.
+  const g = tournament.games[gi];
+  if (!g) return [];
+  const onField = playersOnFieldThisGame(g);
+  return PLAYERS.filter(p => !onField.has(p));
 }
 function playerInitials(name) {
   return name.split(/[\s.]+/).filter(Boolean).map(s => s[0]).slice(0,2).join('').toUpperCase();
@@ -1348,52 +2046,103 @@ function toggleHighlight(p) {
   else highlightedPlayers.add(p);
 }
 
-/* ══════════════════ Swap engine (shared by drag, tap, and bottom sheet) ══════════════════ */
-function performSwap(gIdx, srcHalf, srcKey, tgtHalf, tgtKey) {
-  const g = state[gIdx];
-  const srcPlayer = g[srcHalf][srcKey];
-  const tgtPlayer = g[tgtHalf][tgtKey];
-  if (!srcPlayer) return;
-  if (srcHalf === tgtHalf && srcKey === tgtKey) return;
+/* ══════════════════ Swap engine (segment-aware) ══════════════════
+ * A "chip" is identified by (gameIdx, role, startSec). startSec=0 means the
+ * starting-XI segment for that role. role='__BENCH__' means a bench chip.
+ *
+ * Swap semantics:
+ *   - Two field segments (same or different role): swap the two players for
+ *     those exact time intervals. If the segments are at the same role, this
+ *     is just a name-swap of the two players. If at different roles, we need
+ *     each segment to independently take the other's player.
+ *   - Field segment ↔ bench chip: bring the bench player ON for that time
+ *     interval, push the field player OFF for that interval.
+ *
+ * For starting-XI segments we mutate startingXI[role]; for later segments we
+ * mutate the corresponding sub.inPlayer; we may also need to update the
+ * subsequent boundary's outPlayer for consistency.
+ */
 
-  // Same position flip (both halves of same pos, two different players)
-  if (srcKey === tgtKey && srcHalf !== tgtHalf && POSITIONS.includes(srcKey) && srcPlayer && tgtPlayer && srcPlayer !== tgtPlayer) {
-    const pA = srcPlayer, pB = tgtPlayer;
-    for (const half of ['h1','h2']) for (const k of POSITIONS.concat(BENCH_KEYS)) {
-      if (g[half][k] === pA) g[half][k] = pB; else if (g[half][k] === pB) g[half][k] = pA;
-    }
-  } else if (srcHalf === tgtHalf) {
-    const isFieldPos = POSITIONS.includes(tgtKey);
-    const targetWasMerged = isFieldPos && g.h1[tgtKey] === g.h2[tgtKey] && g.h1[tgtKey] !== '';
-    g[tgtHalf][tgtKey] = srcPlayer; g[srcHalf][srcKey] = tgtPlayer;
-    if (targetWasMerged && srcPlayer !== tgtPlayer) {
-      const oh = tgtHalf === 'h1' ? 'h2' : 'h1';
-      const srcOther = findKeyInHalf(g, oh, srcPlayer, tgtKey);
-      if (srcOther) {
-        const tmp = g[oh][tgtKey]; g[oh][tgtKey] = srcPlayer; g[oh][srcOther] = tmp;
-      }
-    }
-  } else {
-    // cross-half
-    const srcInTgt = findKeyInHalf(g, tgtHalf, srcPlayer, null);
-    if (srcInTgt) {
-      const tmp = g[tgtHalf][tgtKey]; g[tgtHalf][tgtKey] = srcPlayer; g[tgtHalf][srcInTgt] = tmp;
-    } else {
-      // srcPlayer isn't in tgtHalf (corrupt/partial state). Park displaced
-      // tgtPlayer in the first empty bench slot if one exists, so we don't
-      // silently overwrite whoever was sitting at bench0.
-      g[tgtHalf][tgtKey] = srcPlayer;
-      const empty = BENCH_KEYS.find(k => !g[tgtHalf][k]);
-      if (empty) {
-        g[tgtHalf][empty] = tgtPlayer;
-      } else {
-        // All bench slots occupied — fall back to the prior behaviour and
-        // note in the console so the state is at least diagnosable.
-        try { console.warn('matchops-planner: cross-half swap with full bench overwrote bench0'); } catch (_) {}
-        g[tgtHalf].bench0 = tgtPlayer;
-      }
-    }
+function _setSegmentPlayer(game, role, startSec, newPlayer) {
+  // Sets the active player for the segment that starts at startSec at this role.
+  // startSec === 0 → startingXI[role]; otherwise → sub.inPlayer of the matching sub.
+  if (startSec <= 0) {
+    game.startingXI[role] = newPlayer || '';
+    // The first sub at this role keeps its outPlayer in sync (whatever was on field at that sub time).
+    return;
   }
+  const subs = (game.scheduledSubs || []).filter(s => s.role === role).sort((a, b) => a.timeSec - b.timeSec);
+  const idx = subs.findIndex(s => s.timeSec === startSec);
+  if (idx >= 0) subs[idx].inPlayer = newPlayer || '';
+}
+function _segmentPlayer(game, role, startSec) {
+  if (startSec <= 0) return game.startingXI[role] || '';
+  const sub = (game.scheduledSubs || []).find(s => s.role === role && s.timeSec === startSec);
+  return sub ? (sub.inPlayer || '') : '';
+}
+
+function performSwap(gIdx, srcRole, srcStart, tgtRole, tgtStart) {
+  const g = tournament.games[gIdx];
+  if (!g) return;
+  const isSrcBench = srcRole === '__BENCH__';
+  const isTgtBench = tgtRole === '__BENCH__';
+  if (isSrcBench && isTgtBench) return; // bench↔bench is a no-op
+  if (!isSrcBench && !isTgtBench && srcRole === tgtRole && srcStart === tgtStart) return;
+
+  if (!isSrcBench && !isTgtBench) {
+    // Field ↔ Field swap. Just swap the two segment players.
+    const srcP = _segmentPlayer(g, srcRole, srcStart);
+    const tgtP = _segmentPlayer(g, tgtRole, tgtStart);
+    if (!srcP && !tgtP) return;
+    _setSegmentPlayer(g, srcRole, srcStart, tgtP);
+    _setSegmentPlayer(g, tgtRole, tgtStart, srcP);
+    saveAll(); pushHistory(); renderActiveTab();
+    return;
+  }
+
+  // Field ↔ Bench: srcSlot is whichever side has a role; tgtSlot has the bench player.
+  const fieldRole = isSrcBench ? tgtRole : srcRole;
+  const fieldStart = isSrcBench ? tgtStart : srcStart;
+  // For a bench chip, the player identity is encoded in the slot's data-player attr at click time;
+  // the swap engine receives bench chips with their player carried via tapSelected.benchPlayer.
+  const benchPlayer = isSrcBench ? (tapSelected && tapSelected.benchPlayer) : null;
+  // We dispatch this through a separate path; if performSwap is called for bench-↔-field
+  // without the player context we noop. Use addSubAtMinute / removeSub from the bottom sheet.
+  if (!benchPlayer) return;
+  // Replace the field segment's player with benchPlayer.
+  _setSegmentPlayer(g, fieldRole, fieldStart, benchPlayer);
+  saveAll(); pushHistory(); renderActiveTab();
+}
+
+/* Add or update a substitution at (gameIdx, role, atSec) bringing inPlayer on. */
+function addSubAtMinute(gameIdx, role, atSec, inPlayer) {
+  const g = tournament.games[gameIdx];
+  if (!g) return;
+  const durationSec = (g.durationMin || 25) * 60;
+  atSec = Math.max(1, Math.min(durationSec - 1, Math.round(atSec)));
+  // Find existing player at that time at this role (becomes outPlayer).
+  const outPlayer = playerAtRoleSec(g, role, atSec);
+  // If a sub already exists at exactly atSec for this role, update in-place; else append.
+  const existing = (g.scheduledSubs || []).find(s => s.role === role && s.timeSec === atSec);
+  if (existing) {
+    existing.outPlayer = outPlayer;
+    existing.inPlayer = inPlayer || '';
+  } else {
+    g.scheduledSubs = g.scheduledSubs || [];
+    g.scheduledSubs.push({
+      id: 's_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+      role, timeSec: atSec,
+      outPlayer, inPlayer: inPlayer || ''
+    });
+  }
+  // Keep subs sorted in time order for deterministic rendering.
+  g.scheduledSubs.sort((a, b) => a.role.localeCompare(b.role) || a.timeSec - b.timeSec);
+  saveAll(); pushHistory(); renderActiveTab();
+}
+function removeSub(gameIdx, subId) {
+  const g = tournament.games[gameIdx];
+  if (!g || !Array.isArray(g.scheduledSubs)) return;
+  g.scheduledSubs = g.scheduledSubs.filter(s => s.id !== subId);
   saveAll(); pushHistory(); renderActiveTab();
 }
 
@@ -1402,6 +2151,7 @@ function renderActiveTab() {
   if (activeTab === 'games') renderGamesTab();
   else if (activeTab === 'minutes') renderMinutesTab();
   else if (activeTab === 'plans') renderPlans();
+  else if (activeTab === 'settings') renderSettings();
   updateVersionBadge();
 }
 
@@ -1428,16 +2178,20 @@ function renderGamesTab() {
 function renderRibbon() {
   const container = document.getElementById('ribbon');
   container.innerHTML = '';
-  SCHEDULE.forEach((sched, i) => {
+  tournament.games.forEach((game, i) => {
     const btn = document.createElement('button');
     btn.className = 'ribbon-game' + (i === activeGame ? ' active' : '') + (included[i] ? '' : ' excluded');
     btn.dataset.game = i;
-    const dotTitle = included[i] ? 'Counted in totals — tap to exclude' : 'Excluded from totals — tap to include';
+    const dotTitle = included[i] ? 'Counted in totals - tap to exclude' : 'Excluded from totals - tap to include';
+    const opp = game.opponent || 'TBD';
+    const time = game.time || 'TBD';
+    const field = game.field || '';
+    const timeText = time + (field && field !== 'TBD' ? ' · ' + field : '');
     btn.innerHTML =
       '<span class="ribbon-include' + (included[i] ? ' on' : '') + '" data-toggle role="checkbox" aria-checked="' + included[i] + '" aria-label="' + dotTitle + '" title="' + dotTitle + '"></span>' +
-      '<span class="ribbon-label">Game ' + (i+1) + '</span>' +
-      '<span class="ribbon-opp">' + sched.opp + '</span>' +
-      '<span class="ribbon-time">' + sched.time + (sched.field && sched.field !== 'TBD' ? ' · ' + sched.field : '') + '</span>';
+      '<span class="ribbon-label">' + (game.label || ('Game ' + (i+1))) + '</span>' +
+      '<span class="ribbon-opp">' + escapeHtml(opp) + '</span>' +
+      '<span class="ribbon-time">' + escapeHtml(timeText) + '</span>';
     btn.addEventListener('click', (e) => {
       if (e.target.closest('[data-toggle]')) {
         e.stopPropagation();
@@ -1452,76 +2206,102 @@ function renderRibbon() {
     });
     container.appendChild(btn);
   });
-  // scroll active into view (instant — the slide animation is the main motion)
   const activeEl = container.querySelector('.ribbon-game.active');
   if (activeEl && activeEl.scrollIntoView) activeEl.scrollIntoView({ behavior: 'auto', block: 'nearest', inline: 'center' });
 }
 
-function chipHtml(gameIdx, half, key, player, extraClass) {
+/* Build one segment chip. role='__BENCH__' for bench chips (no startSec semantics). */
+function chipHtml(gameIdx, role, startSec, segIdx, segMin, player, extraClass) {
   const hl = isHighlighted(player) ? 'highlighted' : '';
   const dim = anyHighlightActive() && player && !isHighlighted(player) ? 'any-highlighted' : '';
-  const tap = tapSelected && tapSelected.game === gameIdx && tapSelected.half === half && tapSelected.key === key ? 'tap-selected' : '';
+  const tap = tapSelected
+    && tapSelected.game === gameIdx
+    && tapSelected.role === role
+    && tapSelected.startSec === startSec
+    && tapSelected.benchPlayer === (role === '__BENCH__' ? player : undefined)
+      ? 'tap-selected' : '';
   const cls = ['slot', hl, dim, tap, extraClass || ''].filter(Boolean).join(' ');
-  // per-chip minute bar
   let barHtml = '';
   if (player) {
     const r = playerRatio(player);
     const hue = r !== null ? hueForRatio(r) : 60;
-    const pct = r !== null ? Math.min(100, Math.max(0, r * 80)) : 0; // display up to 100% when r=1.25
+    const pct = r !== null ? Math.min(100, Math.max(0, r * 80)) : 0;
     barHtml = '<div class="chip-min-bar"><div class="chip-min-fill" style="--chip-hue:' + hue + ';--chip-ratio:' + pct + '%"></div></div>';
   }
-  return '<div class="' + cls + '" data-game="' + gameIdx + '" data-half="' + half + '" data-key="' + key + '" draggable="true">' +
-    '<span>' + (player || '') + '</span>' + barHtml + '</div>';
+  const flex = Math.max(1, Math.round(segMin || 0));
+  const benchAttr = role === '__BENCH__' ? ' data-bench-player="' + escapeHtml(player || '') + '"' : '';
+  return '<div class="' + cls + '" data-game="' + gameIdx + '" data-role="' + escapeHtml(role) + '" data-start="' + startSec + '" data-segidx="' + segIdx + '"' + benchAttr + ' style="--seg-flex:' + flex + ';" draggable="true">' +
+    '<span>' + escapeHtml(player || '') + '</span>' + barHtml + '</div>';
 }
 
 function renderGameDetail() {
   const gIdx = activeGame;
-  const g = state[gIdx];
-  const sched = SCHEDULE[gIdx];
+  const g = tournament.games[gIdx];
+  if (!g) { document.getElementById('game-detail').innerHTML = ''; return; }
   const view = document.getElementById('game-detail');
-  const benchedBoth = new Set(benchedBothHalves(gIdx));
-  const onFieldH1 = new Set(POSITIONS.map(p => g.h1[p]).filter(Boolean));
-  const onFieldH2 = new Set(POSITIONS.map(p => g.h2[p]).filter(Boolean));
+  const benchedNeverPlay = new Set(benchedBothHalves(gIdx));
+  const formation = getFormation(tournament.formationId);
+  const rows = formationRows(formation);
   const benchOpen = benchOpenFor === gIdx;
+  const durationSec = (g.durationMin || 25) * 60;
+  const halfSec = (g.halfTimeMin > 0 && g.halfTimeMin < (g.durationMin || 25)) ? g.halfTimeMin * 60 : 0;
+  const htPct = halfSec > 0 ? (halfSec / durationSec * 100).toFixed(2) + '%' : '50%';
+
+  // Header (game name + opponent + Detail button)
+  const headerLine = (g.label || ('Game ' + (gIdx + 1))) + ' · ' + (g.opponent || 'TBD');
 
   const canUndo = historyIndex > 0;
   const canRedo = historyIndex < history.length - 1;
   let html = '';
 
-  // Pitch card (undo/redo now appear AFTER this block)
+  // Pitch card
   html += '<div class="pitch-card">';
+  html +=   '<div class="pitch-card-header">';
+  html +=     '<span class="pitch-card-title">' + escapeHtml(headerLine) + '</span>';
+  html +=     '<button class="icon-btn pitch-detail-btn" id="open-detail" title="Open detail view" aria-label="Open detail view">' +
+                '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z"/><path d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/></svg>' +
+              '</button>';
+  html +=   '</div>';
   html +=   '<div class="pitch">';
-  html += POSITIONS.map(p => {
-    const h1 = g.h1[p] || '', h2 = g.h2[p] || '';
-    const full = h1 && h1 === h2;
-    const h1PlaysBoth = !full && h1 && onFieldH2.has(h1) ? 'plays-both' : '';
-    const h2PlaysBoth = !full && h2 && onFieldH1.has(h2) ? 'plays-both' : '';
-    return '<div class="pos-box pos-' + p.toLowerCase() + '">' +
-      '<div class="pos-label"><span class="pos-spacer"></span><span class="pos-name">' + p + '</span><span class="pos-spacer"></span></div>' +
-      '<div class="chip-row' + (full ? ' full-game' : '') + '">' +
-        chipHtml(gIdx, 'h1', p, h1, h1PlaysBoth) +
-        chipHtml(gIdx, 'h2', p, h2, h2PlaysBoth) +
-      '</div>' +
-    '</div>';
-  }).join('');
+  // Each row: roles sorted left-to-right by relX. Outfield rows first, GK row last.
+  for (const row of rows) {
+    html += '<div class="pitch-row">';
+    for (const role of row) {
+      const segs = getCellSegments(g, role.name);
+      const isFull = segs.length === 1;
+      html += '<div class="pos-box">';
+      html +=   '<div class="pos-label"><span class="pos-name">' + escapeHtml(role.name) + '</span></div>';
+      html +=   '<div class="chip-row' + (isFull ? ' full-game' : '') + '" style="--ht-pct:' + htPct + ';">';
+      const playsBothAtHalf = (player) => {
+        // For visual emphasis: a player who appears in multiple distinct segments at this role.
+        let count = 0;
+        for (const s of segs) if (s.player === player) count++;
+        return count > 1 ? 'plays-both' : '';
+      };
+      for (const seg of segs) {
+        const segMin = (seg.endSec - seg.startSec) / 60;
+        const extra = playsBothAtHalf(seg.player);
+        html += chipHtml(gIdx, role.name, seg.startSec, seg.segIdx, segMin, seg.player, extra);
+      }
+      if (halfSec > 0 && !isFull) html += '<div class="ht-divider"></div>';
+      html +=   '</div>';
+      html += '</div>';
+    }
+    html += '</div>';
+  }
   html +=   '</div>';
 
-  // Bench drawer toggle
-  const benchCount = BENCH_KEYS.filter(k => g.h1[k] || g.h2[k]).length * 2;
+  // Bench drawer (kickoff bench = roster − startingXI)
+  const startingPlayers = new Set(Object.values(g.startingXI).filter(Boolean));
+  const benchPlayersAtKickoff = PLAYERS.filter(p => !startingPlayers.has(p));
   html +=   '<button class="bench-drawer-toggle" id="bench-toggle" aria-expanded="' + benchOpen + '">' +
-              '<span>Bench (' + benchCount + ' slots)</span><span class="chev">▼</span>' +
+              '<span>Bench at kickoff (' + benchPlayersAtKickoff.length + ')</span><span class="chev">▼</span>' +
             '</button>';
   html +=   '<div class="bench-section' + (benchOpen ? ' open' : '') + '" id="bench-section">';
-  html +=     '<div class="bench-row"><div class="bench-label">Bench H1</div><div class="chip-row">' +
-                BENCH_KEYS.map(k => {
-                  const pl = g.h1[k] || '';
-                  return chipHtml(gIdx, 'h1', k, pl, benchedBoth.has(pl) ? 'benched-both' : '');
-                }).join('') +
-              '</div></div>';
-  html +=     '<div class="bench-row"><div class="bench-label">Bench H2</div><div class="chip-row">' +
-                BENCH_KEYS.map(k => {
-                  const pl = g.h2[k] || '';
-                  return chipHtml(gIdx, 'h2', k, pl, benchedBoth.has(pl) ? 'benched-both' : '');
+  html +=     '<div class="bench-row"><div class="chip-row">' +
+                benchPlayersAtKickoff.map((pl, idx) => {
+                  const extra = benchedNeverPlay.has(pl) ? 'benched-both' : '';
+                  return chipHtml(gIdx, '__BENCH__', 0, idx, 1, pl, extra);
                 }).join('') +
               '</div></div>';
   html +=   '</div>';
@@ -1576,6 +2356,8 @@ function renderGameDetail() {
   // Handlers
   document.getElementById('btn-undo').addEventListener('click', undo);
   document.getElementById('btn-redo').addEventListener('click', redo);
+  const detailBtn = document.getElementById('open-detail');
+  if (detailBtn) detailBtn.addEventListener('click', () => openDetailModal(gIdx));
   document.getElementById('bench-toggle').addEventListener('click', () => {
     benchOpenFor = benchOpen ? null : gIdx;
     renderGameDetail();
@@ -1612,7 +2394,7 @@ function renderGameDetail() {
 function renderMinutesTab() {
   const total = PLAYERS.length;
   const activeGames = included.filter(Boolean).length;
-  document.getElementById('minutes-count').textContent = total + ' players · ' + activeGames + '/5 games counted';
+  document.getElementById('minutes-count').textContent = total + ' players · ' + activeGames + '/' + tournament.games.length + ' games counted';
 
   const list = document.getElementById('minutes-cards');
   list.className = 'pt-grid';
@@ -1676,25 +2458,35 @@ function renderFocusCard(focused, activeGames) {
   const barW = r !== null ? Math.min(100, Math.max(0, Math.round(r * 80))) : 0;
   const c = ratioColors(r);
   const isPrio = PRIORITY.has(focused);
-  const expected = activeGames ? (12000 * activeGames / 11) : 0;
+  const formation = getFormation(tournament.formationId);
+  const onFieldCount = formation.roles.length;
+  const rosterSize = Math.max(onFieldCount, tournament.rosterSize || PLAYERS.length);
+  let totalAvail = 0;
+  for (let i = 0; i < tournament.games.length; i++) {
+    if (!included[i]) continue;
+    totalAvail += (tournament.games[i].durationMin || 25) * 60 * onFieldCount;
+  }
+  const expected = totalAvail / rosterSize;
   const deltaMin = expected ? Math.round((totalSec - expected) / 60) : 0;
   const deltaStr = expected
     ? (deltaMin === 0 ? 'on fair share' : (deltaMin > 0 ? '+' + deltaMin + " min vs average" : deltaMin + " min vs average"))
     : 'no games counted';
 
-  const gamesHtml = [0, 1, 2, 3, 4].map(i => {
+  const gamesHtml = tournament.games.map((g, i) => {
     const sec = playerMinsPerGame(focused, i);
     const posInfo = playerGamePositions(focused, i);
+    const totalGameSec = (g.durationMin || 25) * 60;
+    const ratio = totalGameSec > 0 ? sec / totalGameSec : 0;
     let cls = 'focus-game';
     if (!included[i]) cls += ' excluded';
-    if (sec === 1500) cls += ' full';
-    else if (sec === 750) cls += ' half';
+    if (ratio >= 0.95) cls += ' full';
+    else if (ratio >= 0.05) cls += ' half';
     else cls += ' zero';
     const mins = Math.round(sec / 60);
     const posText = posInfo.text || '\u2014';
     return '<div class="' + cls + '">' +
       '<span class="fg-label">G' + (i + 1) + '</span>' +
-      '<span class="fg-pos">' + posText + '</span>' +
+      '<span class="fg-pos">' + escapeHtml(posText) + '</span>' +
       '<span class="fg-mins">' + mins + "'" + '</span>' +
     '</div>';
   }).join('');
@@ -1893,9 +2685,12 @@ function safeFilenamePart(s) {
 }
 function exportJson() {
   const snapshot = {
-    formatVersion: 2,
+    formatVersion: 1,
+    kind: 'matchops-planner-export',
     savedAt: new Date().toISOString(),
-    games: state, included, currentVersionName,
+    tournament,
+    included,
+    currentVersionName,
     versions: loadVersions(),
   };
   const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: 'application/json' });
@@ -1908,36 +2703,57 @@ function exportJson() {
   a.click();
   URL.revokeObjectURL(url);
 }
+function _coerceImportToTournament(data) {
+  // Accepts: v1 envelope { formatVersion:1, tournament, ... }
+  //          v2-style export { formatVersion:2, games:[...] } → migrated
+  //          legacy export { games:[...] } (no formatVersion) → migrated
+  if (data && data.formatVersion === 1 && data.tournament) {
+    return { t: data.tournament, included: data.included, currentVersionName: data.currentVersionName, versions: data.versions };
+  }
+  if (data && Array.isArray(data.games)) {
+    const t = migrateV2ToV3({ games: data.games });
+    if (!t) return null;
+    return { t, included: data.included, currentVersionName: data.currentVersionName, versions: data.versions };
+  }
+  return null;
+}
 document.getElementById('import-file').addEventListener('change', (e) => {
   const file = e.target.files[0]; if (!file) return;
   const reader = new FileReader();
   reader.onload = (ev) => {
     try {
       const data = JSON.parse(ev.target.result);
-      if (!hasValidShape(data && data.games)) {
-        alert('Invalid file: game shape not recognised.');
+      const coerced = _coerceImportToTournament(data);
+      if (!coerced || !hasValidShape(coerced.t)) {
+        alert('Invalid file: tournament shape not recognised.');
         return;
       }
-      const importUnknowns = collectUnknownPlayers(data.games);
+      const importUnknowns = collectUnknownPlayers(coerced.t);
       // Filter imported versions to ones that structurally validate
       const importedVersions = {};
-      if (data.versions && typeof data.versions === 'object') {
-        for (const name of Object.keys(data.versions)) {
-          const v = data.versions[name];
-          if (v && hasValidShape(v.games)) importedVersions[name] = v;
+      if (coerced.versions && typeof coerced.versions === 'object') {
+        for (const name of Object.keys(coerced.versions)) {
+          const v = coerced.versions[name];
+          // Versions can be in v1 (with .tournament) or legacy v2 (with .games) shape
+          let vt = null;
+          if (v && v.tournament && hasValidShape(v.tournament)) vt = v.tournament;
+          else if (v && Array.isArray(v.games)) {
+            const m = migrateV2ToV3({ games: v.games });
+            if (m && hasValidShape(m)) vt = m;
+          }
+          if (vt) importedVersions[name] = { tournament: vt, included: v.included || defaultIncluded(vt.games.length), savedAt: v.savedAt || new Date().toISOString() };
         }
       }
       const importedCount = Object.keys(importedVersions).length;
       const hasVer = importedCount > 0;
       const unknownsPart = importUnknowns.length
-        ? '\n\nImported plan references unknown players: ' + importUnknowns.join(', ') + '. Resolve in Plans → Roster after loading.'
+        ? '\n\nImported plan references unknown players: ' + importUnknowns.join(', ') + '. Resolve in Plans then Roster after loading.'
         : '';
       if (!confirm('Replace current plan' + (hasVer ? (' AND import ' + importedCount + ' version(s)?') : '?') + unknownsPart)) return;
-      state = data.games;
-      included = (data.included || DEFAULT_INCLUDED).slice(0,5);
-      while (included.length < 5) included.push(true);
-      const incomingName = typeof data.currentVersionName === 'string' ? data.currentVersionName : null;
-      currentVersionName = incomingName;
+      tournament = coerced.t;
+      included = _normalizeIncluded(coerced.included, tournament.games.length);
+      currentVersionName = typeof coerced.currentVersionName === 'string' ? coerced.currentVersionName : null;
+      if (activeGame >= tournament.games.length) activeGame = 0;
       if (hasVer) {
         const merged = Object.assign({}, loadVersions(), importedVersions);
         saveVersionsMap(merged);
@@ -1948,10 +2764,9 @@ document.getElementById('import-file').addEventListener('change', (e) => {
   reader.readAsText(file); e.target.value = '';
 });
 async function shareUrl() {
-  const snapshot = { games: state, included };
+  const snapshot = { formatVersion: 1, kind: 'matchops-planner-share', tournament, included };
   try {
     const str = JSON.stringify(snapshot);
-    // URL-safe base64
     const b64 = btoa(unescape(encodeURIComponent(str))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
     const url = location.origin + location.pathname + '#plan=' + b64;
     if (navigator.clipboard) await navigator.clipboard.writeText(url);
@@ -1960,7 +2775,7 @@ async function shareUrl() {
 }
 function resetPlan() {
   if (!confirm('Reset all games to the original plan? This clears saved state (versions kept).')) return;
-  try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
+  try { localStorage.removeItem(STORAGE_KEY_V3); localStorage.removeItem(STORAGE_KEY_V2); } catch (e) {}
   location.reload();
 }
 
@@ -1972,12 +2787,13 @@ function resetPlan() {
     const b64 = m[1].replace(/-/g,'+').replace(/_/g,'/') + '='.repeat((4 - m[1].length % 4) % 4);
     const str = decodeURIComponent(escape(atob(b64)));
     const data = JSON.parse(str);
-    if (!validateGamesShape(data && data.games)) return; // reject silently — never trust URL payload
+    const coerced = _coerceImportToTournament(data);
+    if (!coerced || !validateGamesShape(coerced.t)) return; // reject silently
     if (confirm('A shared plan is in the URL. Load it?')) {
-      state = data.games;
-      included = (data.included || DEFAULT_INCLUDED).slice(0,5);
-      while (included.length < 5) included.push(true);
+      tournament = coerced.t;
+      included = _normalizeIncluded(coerced.included, tournament.games.length);
       currentVersionName = null;
+      if (activeGame >= tournament.games.length) activeGame = 0;
       saveAll(); pushHistory();
     }
     if (window.history && window.history.replaceState) window.history.replaceState(null, '', location.pathname);
@@ -1988,7 +2804,12 @@ function resetPlan() {
 let dragSource = null;
 function onDragStart(e) {
   const s = e.currentTarget;
-  dragSource = { game: s.dataset.game, half: s.dataset.half, key: s.dataset.key };
+  dragSource = {
+    game: s.dataset.game,
+    role: s.dataset.role,
+    startSec: parseInt(s.dataset.start, 10) || 0,
+    benchPlayer: s.dataset.role === '__BENCH__' ? (s.dataset.benchPlayer || '') : undefined,
+  };
   e.dataTransfer.effectAllowed = 'move';
   s.style.opacity = '0.4';
 }
@@ -2006,8 +2827,15 @@ function onDrop(e) {
   const t = e.currentTarget; t.classList.remove('drag-over');
   if (!dragSource) return;
   if (t.dataset.game !== dragSource.game) return;
-  if (t.dataset.half === dragSource.half && t.dataset.key === dragSource.key) return;
-  performSwap(parseInt(dragSource.game,10), dragSource.half, dragSource.key, t.dataset.half, t.dataset.key);
+  const tgtRole = t.dataset.role;
+  const tgtStart = parseInt(t.dataset.start, 10) || 0;
+  if (tgtRole === dragSource.role && tgtStart === dragSource.startSec) return;
+  // For bench → field drag, set tapSelected so performSwap can recover the bench player.
+  if (dragSource.role === '__BENCH__') {
+    tapSelected = { game: parseInt(dragSource.game, 10), role: '__BENCH__', startSec: 0, benchPlayer: dragSource.benchPlayer };
+  }
+  performSwap(parseInt(dragSource.game,10), dragSource.role, dragSource.startSec, tgtRole, tgtStart);
+  tapSelected = null;
 }
 function onDragEnd(e) {
   e.currentTarget.style.opacity = '';
@@ -2017,16 +2845,24 @@ function onDragEnd(e) {
 function onChipClick(e) {
   const s = e.currentTarget;
   const gIdx = parseInt(s.dataset.game, 10);
-  const half = s.dataset.half, key = s.dataset.key;
-  const player = state[gIdx][half][key];
-  if (!player) return;
+  const role = s.dataset.role;
+  const startSec = parseInt(s.dataset.start, 10) || 0;
+  const benchPlayer = role === '__BENCH__' ? (s.dataset.benchPlayer || '') : undefined;
+  const player = role === '__BENCH__'
+    ? benchPlayer
+    : _segmentPlayer(tournament.games[gIdx], role, startSec);
+  if (!player && role !== '__BENCH__') return;
 
-  if (!tapSelected) { tapSelected = { game: gIdx, half, key }; renderGameDetail(); return; }
-  if (tapSelected.game === gIdx && tapSelected.half === half && tapSelected.key === key) { tapSelected = null; renderGameDetail(); return; }
-  if (tapSelected.game !== gIdx) { tapSelected = { game: gIdx, half, key }; renderGameDetail(); return; }
+  const same = (a, b) => a && b && a.game === b.game && a.role === b.role && a.startSec === b.startSec
+    && a.benchPlayer === b.benchPlayer;
+  const cur = { game: gIdx, role, startSec, benchPlayer };
+  if (!tapSelected) { tapSelected = cur; renderGameDetail(); return; }
+  if (same(tapSelected, cur)) { tapSelected = null; renderGameDetail(); return; }
+  if (tapSelected.game !== gIdx) { tapSelected = cur; renderGameDetail(); return; }
 
-  const src = tapSelected; tapSelected = null;
-  performSwap(gIdx, src.half, src.key, half, key);
+  const src = tapSelected;
+  tapSelected = null;
+  performSwap(gIdx, src.role, src.startSec, role, startSec);
 }
 
 /* ══════════════════ Bottom sheet ══════════════════ */
@@ -2053,27 +2889,63 @@ document.getElementById('sheet-backdrop').addEventListener('click', closeSheet);
 
 function openChipSheet(slot) {
   const gIdx = parseInt(slot.dataset.game, 10);
-  const half = slot.dataset.half, key = slot.dataset.key;
-  const g = state[gIdx];
-  const player = g[half][key];
+  const role = slot.dataset.role;
+  const startSec = parseInt(slot.dataset.start, 10) || 0;
+  const g = tournament.games[gIdx];
+  if (!g) return;
+  const isBench = role === '__BENCH__';
+  const player = isBench ? (slot.dataset.benchPlayer || '') : _segmentPlayer(g, role, startSec);
   if (!player) return;
-  const isFieldPos = POSITIONS.includes(key);
+
   const actions = [];
   actions.push({
     label: isHighlighted(player) ? 'Stop tracking across games' : 'Track across all games',
     onClick: () => { toggleHighlight(player); renderActiveTab(); }
   });
-  if (isFieldPos) {
-    const h1p = g.h1[key], h2p = g.h2[key];
-    if (h1p && h2p && h1p !== h2p) {
-      actions.push({ label: 'Keep ' + h1p + ' for full game', variant: 'primary', onClick: () => mergeH(gIdx, key, 'h1') });
-      actions.push({ label: 'Keep ' + h2p + ' for full game', variant: 'primary', onClick: () => mergeH(gIdx, key, 'h2') });
-    } else if (h1p && h1p === h2p) {
-      actions.push({ label: 'Split into starter + sub', variant: 'primary', onClick: () => splitMerged(gIdx, key) });
+
+  if (!isBench) {
+    // Compute current segment end-time for "Add sub at..." default
+    const segs = getCellSegments(g, role);
+    const seg = segs.find(s => s.startSec === startSec) || segs[0];
+    const durationMin = (g.durationMin || 25);
+    const halfTimeMin = g.halfTimeMin > 0 && g.halfTimeMin < durationMin ? g.halfTimeMin : durationMin / 2;
+    const segStartMin = (seg.startSec / 60);
+    const segEndMin = (seg.endSec / 60);
+    const defaultMin = (halfTimeMin > segStartMin && halfTimeMin < segEndMin) ? halfTimeMin : (segStartMin + (segEndMin - segStartMin) / 2);
+
+    actions.push({
+      label: 'Add sub at minute…', variant: 'primary',
+      onClick: () => {
+        const benchAtNow = benchAtSec(g, seg.startSec);
+        const minStr = prompt('Sub at what minute? (' + Math.ceil(segStartMin + 0.01) + '–' + Math.floor(segEndMin - 0.01) + ')', String(defaultMin));
+        if (minStr === null) return;
+        const min = parseFloat(minStr);
+        if (!isFinite(min) || min <= segStartMin || min >= segEndMin) {
+          alert('Minute must be inside the current segment (' + segStartMin.toFixed(1) + '–' + segEndMin.toFixed(1) + ').');
+          return;
+        }
+        if (benchAtNow.length === 0) { alert('No bench players available at that time.'); return; }
+        const inP = prompt('Who comes on at ' + min + "'?\n\nBench: " + benchAtNow.join(', '), benchAtNow[0]);
+        if (!inP) return;
+        const t = inP.trim();
+        if (!benchAtNow.includes(t)) { alert('"' + t + '" is not on the bench at that time. Pick from: ' + benchAtNow.join(', ')); return; }
+        addSubAtMinute(gIdx, role, Math.round(min * 60), t);
+      }
+    });
+
+    // If this segment starts at a sub boundary (startSec > 0), offer to remove the sub.
+    if (startSec > 0) {
+      const sub = (g.scheduledSubs || []).find(s => s.role === role && s.timeSec === startSec);
+      if (sub) {
+        actions.push({ label: 'Remove this sub', variant: 'danger', onClick: () => removeSub(gIdx, sub.id) });
+      }
     }
   }
-  const sub = 'Position: ' + key + ' · ' + (half === 'h1' ? '1st half' : '2nd half');
-  openSheet(player, sub, actions);
+
+  const subLine = isBench
+    ? 'Bench at kickoff'
+    : ('Position: ' + role + (startSec > 0 ? (' · from ' + Math.round(startSec / 60) + "'") : ' · from kickoff'));
+  openSheet(player, subLine, actions);
 }
 function openPlayerSheet(player) {
   const total = playerTotalSec(player);
@@ -2086,25 +2958,8 @@ function openPlayerSheet(player) {
   ];
   openSheet(player, formatMin(total) + ' total · ' + pct, actions);
 }
-function mergeH(gIdx, pos, keepHalf) {
-  const g = state[gIdx];
-  const keeper = g[keepHalf][pos];
-  const displaced = g[keepHalf === 'h1' ? 'h2' : 'h1'][pos];
-  if (!keeper || displaced === keeper) return;
-  const otherHalf = keepHalf === 'h1' ? 'h2' : 'h1';
-  const target = findKeyInHalf(g, otherHalf, keeper, pos);
-  if (target) {
-    const tmp = g[otherHalf][pos]; g[otherHalf][pos] = keeper; g[otherHalf][target] = tmp;
-  } else {
-    g[otherHalf][pos] = keeper; g[otherHalf].bench0 = displaced;
-  }
-  saveAll(); pushHistory(); renderActiveTab();
-}
-function splitMerged(gIdx, pos) {
-  const g = state[gIdx];
-  const tmp = g.h2[pos]; g.h2[pos] = g.h2.bench0; g.h2.bench0 = tmp;
-  saveAll(); pushHistory(); renderActiveTab();
-}
+// mergeH/splitMerged were the legacy bottom-sheet actions. Replaced by
+// addSubAtMinute / removeSub on the new model (see swap engine block above).
 
 /* ══════════════════ Tab navigation ══════════════════ */
 function setTab(name) {
@@ -2119,7 +2974,234 @@ function setTab(name) {
 document.querySelectorAll('.nav-item').forEach(n => n.addEventListener('click', () => setTab(n.dataset.tab)));
 document.getElementById('plan-name').addEventListener('click', () => setTab('plans'));
 
-/* ══════════════════ PWA install prompt ══════════════════ */
+/* ══════════════════ Settings tab ══════════════════ */
+function renderSettings() {
+  const view = document.getElementById('settings-view');
+  if (!view) return;
+  const formation = getFormation(tournament.formationId);
+  const fieldSizes = ['3v3','5v5','8v8','11v11'];
+
+  let html = '';
+
+  // Tournament-level settings
+  html += '<div class="settings-section">';
+  html +=   '<h4>Tournament</h4>';
+  html +=   '<div class="settings-row"><label for="set-team">Team name</label>';
+  html +=     '<input type="text" id="set-team" value="' + escapeHtml(tournament.teamName || '') + '"></div>';
+  html +=   '<div class="settings-row"><label for="set-formation">Formation</label>';
+  html +=     '<select id="set-formation">';
+  for (const fs of fieldSizes) {
+    const presets = FORMATIONS.filter(f => f.fieldSize === fs);
+    if (!presets.length) continue;
+    html += '<optgroup label="' + fs + '">';
+    for (const f of presets) {
+      const sel = f.id === tournament.formationId ? ' selected' : '';
+      html += '<option value="' + f.id + '"' + sel + '>' + escapeHtml(f.name) + ' · ' + f.roles.length + ' players</option>';
+    }
+    html += '</optgroup>';
+  }
+  html +=     '</select></div>';
+  html +=   '<div class="settings-row"><label for="set-roster">Roster size</label>';
+  html +=     '<input type="number" id="set-roster" min="' + formation.roles.length + '" max="30" value="' + (tournament.rosterSize || PLAYERS.length) + '"></div>';
+  html += '</div>';
+
+  // Per-game list
+  html += '<div class="settings-section">';
+  html +=   '<h4>Games (' + tournament.games.length + ')</h4>';
+  tournament.games.forEach((g, i) => {
+    html += '<div class="settings-game-row" data-game-row="' + i + '">';
+    html +=   '<input type="text" data-f="time" placeholder="Time" value="' + escapeHtml(g.time || '') + '">';
+    html +=   '<input type="text" data-f="opponent" placeholder="Opponent" value="' + escapeHtml(g.opponent || '') + '">';
+    html +=   '<input type="text" data-f="field" placeholder="Field" value="' + escapeHtml(g.field || '') + '">';
+    html +=   '<input type="number" data-f="durationMin" placeholder="Min" min="1" max="120" value="' + (g.durationMin || 25) + '">';
+    html +=   '<input type="number" data-f="halfTimeMin" placeholder="Half" min="0" max="120" step="0.5" value="' + (g.halfTimeMin != null ? g.halfTimeMin : '') + '">';
+    html +=   '<button class="gr-del" data-del-game="' + i + '" title="Delete game" aria-label="Delete game ' + (i+1) + '">×</button>';
+    html += '</div>';
+  });
+  html +=   '<button class="btn" id="set-add-game">+ Add game</button>';
+  html += '</div>';
+
+  view.innerHTML = html;
+
+  document.getElementById('set-team').addEventListener('change', (e) => {
+    tournament.teamName = e.target.value.trim();
+    saveAll(); pushHistory();
+  });
+  document.getElementById('set-formation').addEventListener('change', (e) => {
+    const newId = e.target.value;
+    const newF = getFormation(newId);
+    if (!newF) return;
+    if (!confirm('Switching to formation "' + newF.name + '" will reset role assignments to defaults for any role that does not exist in the new formation. Continue?')) {
+      e.target.value = tournament.formationId;
+      return;
+    }
+    const newRoleNames = new Set(newF.roles.map(r => r.name));
+    for (const g of tournament.games) {
+      const newXI = {};
+      const usedPlayers = new Set();
+      for (const rname of newRoleNames) {
+        const carry = (g.startingXI[rname] && newRoleNames.has(rname)) ? g.startingXI[rname] : '';
+        if (carry) { newXI[rname] = carry; usedPlayers.add(carry); }
+      }
+      // Fill empty roles with first available roster players (alphabetical, deterministic).
+      const roster = PLAYERS.slice();
+      for (const rname of newRoleNames) {
+        if (!newXI[rname]) {
+          const next = roster.find(p => !usedPlayers.has(p));
+          if (next) { newXI[rname] = next; usedPlayers.add(next); }
+          else newXI[rname] = '';
+        }
+      }
+      g.startingXI = newXI;
+      g.scheduledSubs = (g.scheduledSubs || []).filter(s => newRoleNames.has(s.role));
+    }
+    tournament.formationId = newId;
+    saveAll(); pushHistory(); renderActiveTab();
+  });
+  document.getElementById('set-roster').addEventListener('change', (e) => {
+    const v = parseInt(e.target.value, 10);
+    if (!isFinite(v) || v < formation.roles.length) {
+      alert('Roster size must be at least ' + formation.roles.length + ' (formation outfield + GK).');
+      e.target.value = tournament.rosterSize || PLAYERS.length;
+      return;
+    }
+    tournament.rosterSize = v;
+    saveAll(); pushHistory();
+  });
+  view.querySelectorAll('.settings-game-row').forEach(row => {
+    const idx = parseInt(row.dataset.gameRow, 10);
+    row.querySelectorAll('input[data-f]').forEach(inp => {
+      inp.addEventListener('change', () => {
+        const g = tournament.games[idx];
+        if (!g) return;
+        const f = inp.dataset.f;
+        if (f === 'durationMin' || f === 'halfTimeMin') {
+          const v = parseFloat(inp.value);
+          if (isFinite(v) && v >= 0) g[f] = v;
+        } else {
+          g[f] = inp.value.trim();
+        }
+        saveAll(); pushHistory(); renderActiveTab();
+      });
+    });
+    const del = row.querySelector('[data-del-game]');
+    if (del) del.addEventListener('click', () => {
+      if (tournament.games.length <= 1) { alert('At least one game is required.'); return; }
+      if (!confirm('Delete game ' + (idx + 1) + '?')) return;
+      tournament.games.splice(idx, 1);
+      included.splice(idx, 1);
+      if (activeGame >= tournament.games.length) activeGame = Math.max(0, tournament.games.length - 1);
+      saveAll(); pushHistory(); renderActiveTab();
+    });
+  });
+  const addBtn = document.getElementById('set-add-game');
+  if (addBtn) addBtn.addEventListener('click', () => {
+    const fId = tournament.formationId;
+    const f = getFormation(fId);
+    const xi = {};
+    const used = new Set();
+    for (const r of f.roles) {
+      const next = PLAYERS.find(p => !used.has(p));
+      xi[r.name] = next || '';
+      if (next) used.add(next);
+    }
+    tournament.games.push({
+      id: 'g_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+      label: 'Game ' + (tournament.games.length + 1),
+      opponent: 'TBD', time: 'TBD', field: '',
+      durationMin: 25, halfTimeMin: 12.5,
+      startingXI: xi, scheduledSubs: []
+    });
+    included.push(true);
+    saveAll(); pushHistory(); renderActiveTab();
+  });
+}
+
+/* ══════════════════ Detail view modal (per-game pitch + scrubber + timeline) ══════════════════ */
+function openDetailModal(gIdx) {
+  detailGameIdx = gIdx;
+  detailScrubSec = 0;
+  document.getElementById('detail-overlay').classList.add('open');
+  renderDetailModal();
+}
+function closeDetailModal() {
+  detailGameIdx = -1;
+  document.getElementById('detail-overlay').classList.remove('open');
+}
+function renderDetailModal() {
+  if (detailGameIdx < 0) return;
+  const g = tournament.games[detailGameIdx];
+  if (!g) { closeDetailModal(); return; }
+  const formation = getFormation(tournament.formationId);
+  const durationSec = (g.durationMin || 25) * 60;
+  const halfSec = (g.halfTimeMin > 0 && g.halfTimeMin < (g.durationMin || 25)) ? g.halfTimeMin * 60 : 0;
+  const sec = Math.max(0, Math.min(durationSec - 1, detailScrubSec || 0));
+
+  document.getElementById('detail-title').textContent =
+    (g.label || ('Game ' + (detailGameIdx + 1))) + ' · ' + (tournament.teamName || '') + ' vs ' + (g.opponent || 'TBD');
+  document.getElementById('detail-sub').textContent =
+    formation.name + ' · ' + (g.durationMin || 25) + " min" + (halfSec ? (' · half-time at ' + g.halfTimeMin + "'") : '');
+
+  const body = document.getElementById('detail-body');
+  let html = '';
+
+  // Pitch with absolute-positioned discs at relX/relY
+  const field = fieldAtSec(g, sec);
+  html += '<div class="detail-pitch-wrap" id="dt-pitch">';
+  for (const role of formation.roles) {
+    const player = field[role.name] || '';
+    const left = (role.relX * 100).toFixed(2) + '%';
+    const top = (role.relY * 100).toFixed(2) + '%';
+    html += '<div class="detail-disc" style="left:' + left + ';top:' + top + ';">' +
+              '<span class="dd-role">' + escapeHtml(role.name) + '</span>' +
+              '<span class="dd-name">' + escapeHtml(player) + '</span>' +
+            '</div>';
+  }
+  html += '</div>';
+
+  // Scrubber
+  const tMin = Math.floor(sec / 60), tSec = Math.floor(sec % 60);
+  const tStr = tMin + ':' + String(tSec).padStart(2, '0');
+  html += '<div class="detail-scrubber">';
+  html +=   '<input type="range" id="dt-scrub" min="0" max="' + (durationSec - 1) + '" step="1" value="' + sec + '">';
+  html +=   '<span class="dt-time">' + tStr + '</span>';
+  html += '</div>';
+
+  // Timeline strip — one row per role
+  html += '<div class="detail-timeline">';
+  html +=   '<h4>Timeline</h4>';
+  for (const role of formation.roles) {
+    const segs = getCellSegments(g, role.name);
+    html += '<div class="dt-track-row"><span class="dt-track-label">' + escapeHtml(role.name) + '</span><div class="dt-track">';
+    for (const seg of segs) {
+      const left = (seg.startSec / durationSec * 100).toFixed(2) + '%';
+      const w = ((seg.endSec - seg.startSec) / durationSec * 100).toFixed(2) + '%';
+      const sub = seg.segIdx > 0 ? ' data-seg="sub"' : '';
+      html += '<div class="dt-seg" style="left:' + left + ';width:' + w + ';"' + sub + '>' + escapeHtml(seg.player || '') + '</div>';
+    }
+    if (halfSec > 0) {
+      const hLeft = (halfSec / durationSec * 100).toFixed(2) + '%';
+      html += '<div class="dt-half" style="left:' + hLeft + ';"></div>';
+    }
+    const pinLeft = (sec / durationSec * 100).toFixed(2) + '%';
+    html += '<div class="dt-pin" style="left:' + pinLeft + ';"></div>';
+    html += '</div></div>';
+  }
+  html += '</div>';
+
+  body.innerHTML = html;
+
+  const scrub = document.getElementById('dt-scrub');
+  if (scrub) {
+    scrub.addEventListener('input', (e) => {
+      detailScrubSec = parseInt(e.target.value, 10) || 0;
+      renderDetailModal();
+    });
+  }
+}
+document.getElementById('detail-close').addEventListener('click', closeDetailModal);
+
+
 (function installPrompt() {
   const INSTALL_DISMISSED_KEY = 'matchops-planner-install-dismissed';
   let deferred = null;
@@ -2211,7 +3293,7 @@ function animateGameSwitch(direction) {
     const dy = t.clientY - startY;
     const dt = Date.now() - startT;
     if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.4 && dt < 700) {
-      if (dx < 0 && activeGame < SCHEDULE.length - 1) {
+      if (dx < 0 && activeGame < tournament.games.length - 1) {
         activeGame++; tapSelected = null; renderGamesTab(); animateGameSwitch('next');
       } else if (dx > 0 && activeGame > 0) {
         activeGame--; tapSelected = null; renderGamesTab(); animateGameSwitch('prev');
