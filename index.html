@@ -1151,16 +1151,24 @@ input[type="checkbox"] { accent-color: var(--success); cursor: pointer; }
   /* Centre the disc on its (relX, relY) coordinate so geometry matches
      MatchOps-Local's pitch where players are anchored at their centre. */
   transform: translate(-50%, -50%);
-  /* Background and foreground come from playerRatio via inline --disc-bg/--disc-fg vars. */
-  background: var(--disc-bg, rgba(255,255,255,0.96));
+  /* Background and foreground come from playerRatio via inline
+     --disc-bg / --disc-fg vars. Defaults are fully opaque so the disc
+     never blends into the pitch behind it. */
+  background: var(--disc-bg, #fff);
   color: var(--disc-fg, #1e293b);
-  border: 2px solid rgba(255,255,255,0.85);
+  /* Two-layer edge: thick white inner ring for separation from the green
+     pitch, plus a thin dark outline for hard contrast at any disc colour. */
+  border: 2.5px solid #fff;
+  outline: 1px solid rgba(0,0,0,0.55);
+  outline-offset: 0;
   min-width: 64px; max-width: 96px;
   padding: 4px 6px;
-  border-radius: 6px;
+  border-radius: 7px;
   font-size: 11px; font-weight: 700;
   text-align: center;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+  box-shadow:
+    0 4px 10px rgba(0,0,0,0.55),
+    inset 0 1px 0 rgba(255,255,255,0.18);
   white-space: nowrap;
   overflow: hidden; text-overflow: ellipsis;
   cursor: pointer;
