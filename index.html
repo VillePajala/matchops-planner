@@ -4798,91 +4798,118 @@ function renderDetailModal() {
   html += '</div>';
 
   body.innerHTML = html;
+  // No per-render addEventListener calls here — every interactive element
+  // inside #detail-body is wired via event-delegation handlers attached
+  // once on #detail-overlay (see _onDetailOverlayClick / _onDetailOverlayInput
+  // below). This makes the modal's interactivity immune to "listener was
+  // attached to a DOM that's already been replaced" bugs after re-renders
+  // triggered by a sub mutation.
+}
 
-  // Scrubber: native input handles drag, manual rail-click handles taps
-  // anywhere on the slider line (Webkit/Safari won't seek past current value
-  // on a single tap). DOM refs are looked up fresh inside seekTo each call
-  // so a re-render between events can't leave us holding a stale element.
-  const scrub = document.getElementById('dt-scrub');
-  if (scrub) {
-    scrub.addEventListener('input', (e) => {
-      detailScrubSec = parseInt(e.target.value, 10) || 0;
-      scheduleDetailRender();
-    });
+/* Single delegated click handler for everything inside the detail overlay.
+   Looks up game/formation state freshly from globals on each call so a
+   stale render can't break us. */
+function _onDetailOverlayClick(e) {
+  if (detailGameIdx < 0) return;
+  const t = e.target;
+  if (!(t instanceof Element)) return;
+
+  if (t.closest('#detail-close')) {
+    closeDetailModal();
+    return;
   }
-  const rail = body.querySelector('.dscrub-rail');
-  if (rail) {
-    const seekTo = (clientX) => {
-      const sl = document.getElementById('dt-scrub');
-      if (!sl) return;
-      const rect = sl.getBoundingClientRect();
-      if (rect.width <= 0) return;
-      const max = parseInt(sl.max, 10) || 0;
-      if (max <= 0) return;
-      const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-      detailScrubSec = Math.round(ratio * max);
-      scheduleDetailRender();
-    };
-    rail.addEventListener('click', (e) => {
-      if (e.target.closest('button')) return;
-      seekTo(e.clientX);
-    });
+  if (t.closest('#dt-prev')) {
+    _dtSnapTo(-1);
+    return;
   }
-  // Prev / next snap buttons — also defer the render via rAF.
+  if (t.closest('#dt-next')) {
+    _dtSnapTo(+1);
+    return;
+  }
+  // Timeline segment — open the per-segment sheet (Move / Replace / Remove).
+  const seg = t.closest('.dt-seg[data-role]');
+  if (seg) {
+    e.stopPropagation();
+    const role = seg.dataset.role;
+    const startSec = parseInt(seg.dataset.start, 10) || 0;
+    openSegmentSheet(detailGameIdx, role, startSec, false, '');
+    return;
+  }
+  // Scrubber rail click — seek to clientX even past the current thumb.
+  if (t.closest('.dscrub-rail')) {
+    if (t.closest('button')) return;
+    _dtSeekToClientX(e.clientX);
+    return;
+  }
+  // Empty timeline-track click → open segment sheet for the tapped minute.
+  const track = t.closest('.dt-track');
+  if (track) {
+    _dtTrackClick(e, track);
+    return;
+  }
+  // Disc click → highlight that player across all surfaces.
+  const disc = t.closest('.detail-disc');
+  if (disc) {
+    const p = disc.dataset.discPlayer;
+    if (!p) return;
+    toggleHighlight(p);
+    renderActiveTab();
+    scheduleDetailRender();
+    return;
+  }
+}
+function _onDetailOverlayInput(e) {
+  if (e.target && e.target.id === 'dt-scrub') {
+    detailScrubSec = parseInt(e.target.value, 10) || 0;
+    scheduleDetailRender();
+  }
+}
+function _dtSnapTo(dir) {
+  const g = tournament.games[detailGameIdx];
+  if (!g) return;
   const times = gameInterestingTimes(g);
-  document.getElementById('dt-prev').addEventListener('click', () => {
-    let prev = times[0];
-    for (const t of times) { if (t < sec) prev = t; }
-    detailScrubSec = prev;
-    scheduleDetailRender();
-  });
-  document.getElementById('dt-next').addEventListener('click', () => {
+  const cur = detailScrubSec || 0;
+  if (dir > 0) {
     let next = times[times.length - 1];
-    for (let i = times.length - 1; i >= 0; i--) { if (times[i] > sec) next = times[i]; }
+    for (let i = times.length - 1; i >= 0; i--) { if (times[i] > cur) next = times[i]; }
     detailScrubSec = next;
-    scheduleDetailRender();
-  });
-  // Click a disc — highlight that player across all views (totals strip + timeline).
-  body.querySelectorAll('.detail-disc').forEach(disc => {
-    disc.addEventListener('click', () => {
-      const p = disc.dataset.discPlayer;
-      if (!p) return;
-      toggleHighlight(p);
-      renderActiveTab();
-      renderDetailModal();
-    });
-  });
-  // Tap a timeline segment → segment sheet (per-segment actions).
-  body.querySelectorAll('.dt-seg[data-role]').forEach(el => {
-    el.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const role = el.dataset.role;
-      const startSec = parseInt(el.dataset.start, 10) || 0;
-      openSegmentSheet(detailGameIdx, role, startSec, false, '');
-    });
-  });
-  // Tap empty track area → opens the segment sheet for whichever segment that
-  // minute falls inside (giving you Add sub at minute… with the right range).
-  body.querySelectorAll('.dt-track').forEach(track => {
-    track.addEventListener('click', (e) => {
-      const rect = track.getBoundingClientRect();
-      if (rect.width <= 0) return;
-      const x = (e.clientX - rect.left) / rect.width;
-      const tappedSec = Math.max(0, Math.min(durationSec - 1, Math.round(x * durationSec)));
-      const labelEl = track.parentElement && track.parentElement.querySelector('.dt-track-label');
-      if (!labelEl) return;
-      const roleName = labelEl.textContent.trim();
-      if (roleName === 'BENCH') {
-        // Tap the bench row → not directly meaningful; ignore.
-        return;
-      }
-      const role = formation.roles.find(r => r.name === roleName);
-      if (!role) return;
-      const segs = getCellSegments(g, role.name);
-      const seg = segs.find(s => tappedSec >= s.startSec && tappedSec < s.endSec) || segs[0];
-      openSegmentSheet(detailGameIdx, role.name, seg.startSec, false, '');
-    });
-  });
+  } else {
+    let prev = times[0];
+    for (const t of times) { if (t < cur) prev = t; }
+    detailScrubSec = prev;
+  }
+  scheduleDetailRender();
+}
+function _dtSeekToClientX(clientX) {
+  const sl = document.getElementById('dt-scrub');
+  if (!sl) return;
+  const rect = sl.getBoundingClientRect();
+  if (rect.width <= 0) return;
+  const max = parseInt(sl.max, 10) || 0;
+  if (max <= 0) return;
+  const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+  detailScrubSec = Math.round(ratio * max);
+  scheduleDetailRender();
+}
+function _dtTrackClick(e, track) {
+  const g = tournament.games[detailGameIdx];
+  if (!g) return;
+  const rect = track.getBoundingClientRect();
+  if (rect.width <= 0) return;
+  const x = (e.clientX - rect.left) / rect.width;
+  const durationSec = gameTotalSec(g);
+  const tappedSec = Math.max(0, Math.min(durationSec - 1, Math.round(x * durationSec)));
+  const labelEl = track.parentElement && track.parentElement.querySelector('.dt-track-label');
+  if (!labelEl) return;
+  const roleName = labelEl.textContent.trim();
+  if (roleName === 'BENCH') return;
+  const formation = getFormation(tournament.formationId);
+  const role = formation && formation.roles.find(r => r.name === roleName);
+  if (!role) return;
+  const segs = getCellSegments(g, role.name);
+  const seg = segs.find(s => tappedSec >= s.startSec && tappedSec < s.endSec) || segs[0];
+  if (!seg) return;
+  openSegmentSheet(detailGameIdx, role.name, seg.startSec, false, '');
 }
 
 /* Render one role's timeline row (one segment per played interval). */
@@ -4934,6 +4961,11 @@ function renderDetailBenchRow(g, durationSec, halfSec, scrubSec) {
   return html;
 }
 document.getElementById('detail-close').addEventListener('click', closeDetailModal);
+// Single delegated listeners on the overlay — every interaction inside
+// #detail-body (scrubber, prev/next, segments, discs, tracks) routes here
+// so the listeners survive every renderDetailModal call.
+document.getElementById('detail-overlay').addEventListener('click', _onDetailOverlayClick);
+document.getElementById('detail-overlay').addEventListener('input', _onDetailOverlayInput);
 
 
 (function installPrompt() {
