@@ -4709,12 +4709,35 @@ function renderDetailModal() {
 
   body.innerHTML = html;
 
-  // Scrubber input — drag to scrub
+  // Scrubber: native input event handles drag. Plus a manual click handler
+  // on the rail so a tap anywhere along the slider line — including past
+  // the current thumb position — reliably jumps to that minute. Native
+  // <input type="range"> only seeks on clicks that hit the thin track strip
+  // in the middle, and some browsers (notably mobile Safari) skip clicks
+  // past the current value entirely.
   const scrub = document.getElementById('dt-scrub');
   if (scrub) {
     scrub.addEventListener('input', (e) => {
       detailScrubSec = parseInt(e.target.value, 10) || 0;
       renderDetailModal();
+    });
+  }
+  const rail = body.querySelector('.dscrub-rail');
+  if (rail && scrub) {
+    const seekTo = (clientX) => {
+      const rect = scrub.getBoundingClientRect();
+      if (rect.width <= 0) return;
+      const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+      const newVal = Math.round(ratio * durationSec);
+      if (newVal === parseInt(scrub.value, 10)) return;
+      detailScrubSec = newVal;
+      renderDetailModal();
+    };
+    rail.addEventListener('click', (e) => {
+      // Only handle clicks within the rail's slider-line area; let prev/next
+      // and other controls keep their own handlers.
+      if (e.target.closest('button')) return;
+      seekTo(e.clientX);
     });
   }
   // Prev / next snap buttons
