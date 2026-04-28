@@ -1045,6 +1045,9 @@ input[type="checkbox"] { accent-color: var(--success); cursor: pointer; }
   border-radius: 3px;
   border: 1px solid var(--border-soft);
 }
+.dt-track {
+  cursor: pointer;
+}
 .dt-track .dt-seg {
   position: absolute; top: 0; bottom: 0;
   background: rgba(255,255,255,0.85); color: #1e293b;
@@ -1053,8 +1056,16 @@ input[type="checkbox"] { accent-color: var(--success); cursor: pointer; }
   display: flex; align-items: center; justify-content: center;
   overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
   padding: 0 3px;
+  cursor: pointer;
+  transition: filter 0.15s;
 }
-.dt-track .dt-seg[data-seg="sub"] { background: #fff3cd; }
+.dt-track .dt-seg:hover { filter: brightness(1.08); }
+.dt-track .dt-seg:active { filter: brightness(0.94); }
+.dt-track .dt-seg[data-seg="sub"] {
+  background: #fff3cd;
+  /* Emphasise the boundary with a left accent so multi-sub timelines read clearly. */
+  box-shadow: inset 2px 0 0 var(--accent);
+}
 .dt-track .dt-pin {
   position: absolute; top: -3px; bottom: -3px;
   width: 2px; background: var(--accent);
@@ -2434,6 +2445,14 @@ function performSwap(gIdx, srcRole, srcStart, tgtRole, tgtStart, benchPlayerOver
 }
 
 /* Add or update a substitution at (gameIdx, role, atSec) bringing inPlayer on. */
+/* Trigger a rerender of the detail modal too if it's open, so timeline +
+   pitch reflect a state change made via the modal's segment-tap sheet. */
+function _rerenderAfterMutate() {
+  renderActiveTab();
+  if (detailGameIdx >= 0 && document.getElementById('detail-overlay').classList.contains('open')) {
+    renderDetailModal();
+  }
+}
 function addSubAtMinute(gameIdx, role, atSec, inPlayer) {
   const g = tournament.games[gameIdx];
   if (!g) return;
@@ -2459,13 +2478,13 @@ function addSubAtMinute(gameIdx, role, atSec, inPlayer) {
   }
   // Keep subs sorted in time order for deterministic rendering.
   g.scheduledSubs.sort((a, b) => a.role.localeCompare(b.role) || a.timeSec - b.timeSec);
-  saveAll(); pushHistory(); renderActiveTab();
+  saveAll(); pushHistory(); _rerenderAfterMutate();
 }
 function removeSub(gameIdx, subId) {
   const g = tournament.games[gameIdx];
   if (!g || !Array.isArray(g.scheduledSubs)) return;
   g.scheduledSubs = g.scheduledSubs.filter(s => s.id !== subId);
-  saveAll(); pushHistory(); renderActiveTab();
+  saveAll(); pushHistory(); _rerenderAfterMutate();
 }
 
 /* ══════════════════ Rendering ══════════════════ */
@@ -3346,42 +3365,33 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-function openChipSheet(slot) {
-  const gIdx = parseInt(slot.dataset.game, 10);
-  const role = slot.dataset.role;
-  const startSec = parseInt(slot.dataset.start, 10) || 0;
+/* Shared sheet builder used by both the planning-grid chip and the detail-view
+   timeline segment. Reuses the same actions: Track, Add sub at minute, Remove. */
+function openSegmentSheet(gIdx, role, startSec, isBench, benchPlayer) {
   const g = tournament.games[gIdx];
   if (!g) return;
-  const isBench = role === '__BENCH__';
-  const player = isBench ? (slot.dataset.benchPlayer || '') : _segmentPlayer(g, role, startSec);
+  const player = isBench ? (benchPlayer || '') : _segmentPlayer(g, role, startSec);
   if (!player) return;
 
   const actions = [];
   actions.push({
     label: isHighlighted(player) ? 'Stop tracking across games' : 'Track across all games',
-    onClick: () => { toggleHighlight(player); renderActiveTab(); }
+    onClick: () => { toggleHighlight(player); renderActiveTab(); if (detailGameIdx >= 0) renderDetailModal(); }
   });
 
   if (!isBench) {
-    // Compute current segment end-time for "Add sub at..." default
     const segs = getCellSegments(g, role);
     const seg = segs.find(s => s.startSec === startSec) || segs[0];
-    const durationMin = gameTotalMin(g);
-    const halfTimeMin = gameHalfTimeMin(g) || durationMin / 2;
-    const segStartMin = (seg.startSec / 60);
-    const segEndMin = (seg.endSec / 60);
-    const defaultMin = (halfTimeMin > segStartMin && halfTimeMin < segEndMin) ? halfTimeMin : (segStartMin + (segEndMin - segStartMin) / 2);
 
     actions.push({
       label: 'Add sub at minute…', variant: 'primary',
       onClick: () => openAddSubSheet(gIdx, role, seg)
     });
 
-    // If this segment starts at a sub boundary (startSec > 0), offer to remove the sub.
     if (startSec > 0) {
       const sub = (g.scheduledSubs || []).find(s => s.role === role && s.timeSec === startSec);
       if (sub) {
-        actions.push({ label: 'Remove this sub', variant: 'danger', onClick: () => removeSub(gIdx, sub.id) });
+        actions.push({ label: 'Remove this sub', variant: 'danger', onClick: () => { removeSub(gIdx, sub.id); if (detailGameIdx >= 0) renderDetailModal(); } });
       }
     }
   }
@@ -3390,6 +3400,14 @@ function openChipSheet(slot) {
     ? 'Bench at kickoff'
     : ('Position: ' + role + (startSec > 0 ? (' · from ' + Math.round(startSec / 60) + "'") : ' · from kickoff'));
   openSheet(player, subLine, actions);
+}
+function openChipSheet(slot) {
+  const gIdx = parseInt(slot.dataset.game, 10);
+  const role = slot.dataset.role;
+  const startSec = parseInt(slot.dataset.start, 10) || 0;
+  const isBench = role === '__BENCH__';
+  const benchPlayer = isBench ? (slot.dataset.benchPlayer || '') : '';
+  openSegmentSheet(gIdx, role, startSec, isBench, benchPlayer);
 }
 /* Inline form: pick minute + bench player without nested prompts. */
 function openAddSubSheet(gameIdx, role, seg) {
@@ -3816,7 +3834,7 @@ function renderDetailModal() {
       const left = (seg.startSec / durationSec * 100).toFixed(2) + '%';
       const w = ((seg.endSec - seg.startSec) / durationSec * 100).toFixed(2) + '%';
       const sub = seg.segIdx > 0 ? ' data-seg="sub"' : '';
-      html += '<div class="dt-seg" style="left:' + left + ';width:' + w + ';"' + sub + '>' + escapeHtml(seg.player || '') + '</div>';
+      html += '<div class="dt-seg" data-role="' + escapeHtml(role.name) + '" data-start="' + seg.startSec + '" style="left:' + left + ';width:' + w + ';"' + sub + '>' + escapeHtml(seg.player || '') + '</div>';
     }
     if (halfSec > 0) {
       const hLeft = (halfSec / durationSec * 100).toFixed(2) + '%';
@@ -3837,6 +3855,37 @@ function renderDetailModal() {
       renderDetailModal();
     });
   }
+  // Tap a timeline segment → open the same Add sub / Remove sub sheet that
+  // the planning grid uses. Lets the user create or remove subs without
+  // closing the detail modal.
+  body.querySelectorAll('.dt-seg').forEach(el => {
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const role = el.dataset.role;
+      const startSec = parseInt(el.dataset.start, 10) || 0;
+      openSegmentSheet(detailGameIdx, role, startSec, false, '');
+    });
+  });
+  // Tap an empty area of a track → add a sub at the tapped minute.
+  body.querySelectorAll('.dt-track').forEach(track => {
+    track.addEventListener('click', (e) => {
+      // Only fire if the user didn't click a segment (segments stop propagation).
+      const rect = track.getBoundingClientRect();
+      if (rect.width <= 0) return;
+      const x = (e.clientX - rect.left) / rect.width;
+      const tappedSec = Math.max(0, Math.min(durationSec - 1, Math.round(x * durationSec)));
+      // Find the parent track-row to know which role this is.
+      const labelEl = track.parentElement && track.parentElement.querySelector('.dt-track-label');
+      if (!labelEl) return;
+      const roleName = labelEl.textContent.trim();
+      // Find the segment that contains tappedSec — equivalent to tapping that segment.
+      const role = getFormation(tournament.formationId).roles.find(r => r.name === roleName);
+      if (!role) return;
+      const segs = getCellSegments(g, role.name);
+      const seg = segs.find(s => tappedSec >= s.startSec && tappedSec < s.endSec) || segs[0];
+      openSegmentSheet(detailGameIdx, role.name, seg.startSec, false, '');
+    });
+  });
 }
 document.getElementById('detail-close').addEventListener('click', closeDetailModal);
 
