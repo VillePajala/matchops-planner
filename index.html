@@ -1108,15 +1108,44 @@ input[type="checkbox"] { accent-color: var(--success); cursor: pointer; }
   max-width: 480px;
   margin: 0 auto 14px;
   aspect-ratio: 0.66;
-  background: linear-gradient(to bottom, #4caf50, #388e3c);
-  border-radius: 6px;
+  /* Layered background: stadium hotspot + mowing stripes + base grass.
+     Mirrors the look produced by MatchOps-Local's drawFieldBackground. */
+  background:
+    radial-gradient(ellipse at 50% 30%, rgba(255,255,255,0.10), transparent 60%),
+    repeating-linear-gradient(to right,
+      rgba(255,255,255,0.04) 0,
+      rgba(255,255,255,0.04) 8.33%,
+      rgba(0,0,0,0.05) 8.33%,
+      rgba(0,0,0,0.05) 16.66%
+    ),
+    linear-gradient(to bottom, #4a8e40 0%, #387031 100%);
+  border-radius: 8px;
   overflow: hidden;
+  box-shadow:
+    inset 0 0 0 1px rgba(0,0,0,0.2),
+    0 4px 12px rgba(0,0,0,0.3);
 }
-.detail-pitch-wrap::before {
-  /* center circle + halfway line, subtle */
-  content: ''; position: absolute; left: 0; right: 0; top: 50%;
-  height: 1px; background: rgba(255,255,255,0.35);
+/* SVG layer with the actual football markings (boundary, halfway, center
+   circle, penalty/goal areas, arcs, spots, corner arcs, goals). Sits behind
+   the discs but above the green background. preserveAspectRatio="none"
+   stretches markings to fit any pitch wrap size while keeping their
+   proportions consistent with the wrap's aspect ratio (0.66). */
+.dt-pitch-bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1;
 }
+.dt-pitch-bg .ln {
+  fill: none;
+  stroke: rgba(255,255,255,0.55);
+  stroke-width: 0.5;
+  stroke-linejoin: miter;
+}
+.dt-pitch-bg .spot { fill: rgba(255,255,255,0.7); }
+.dt-pitch-bg .goal { fill: rgba(255,255,255,0.55); }
 .detail-disc {
   position: absolute;
   /* Centre the disc on its (relX, relY) coordinate so geometry matches
@@ -4600,6 +4629,44 @@ function closeDetailModal() {
   unlockBodyScroll();
 }
 
+/* Inline SVG pitch markings layer. ViewBox 100×150, preserveAspectRatio
+   "none" so it stretches with the wrapper (which is locked at aspect-ratio
+   0.66). Proportions mirror MatchOps-Local SOCCER_FIELD_CONFIG:
+   penaltyArea 60%×18%, goalArea 30%×7%, centerCircle r=8% of width,
+   penaltyArc r=80% of centerCircle, penaltySpotDist 12% of height,
+   lineMargin 2%, cornerArc r=2%. */
+const PITCH_BG_SVG = (function () {
+  const lines = [
+    // Outer boundary
+    '<rect class="ln" x="2" y="2" width="96" height="146"/>',
+    // Halfway line + center circle + center spot
+    '<line class="ln" x1="2" y1="75" x2="98" y2="75"/>',
+    '<circle class="ln" cx="50" cy="75" r="8"/>',
+    '<circle class="spot" cx="50" cy="75" r="0.7"/>',
+    // Top penalty area (rect) + 6-yard goal area + penalty spot + arc (D)
+    '<rect class="ln" x="20" y="2" width="60" height="27"/>',
+    '<rect class="ln" x="35" y="2" width="30" height="10.5"/>',
+    '<circle class="spot" cx="50" cy="20" r="0.7"/>',
+    '<path class="ln" d="M 56.4 29 A 6.4 6.4 0 0 1 43.6 29"/>',
+    // Bottom penalty area + 6-yard + spot + arc
+    '<rect class="ln" x="20" y="121" width="60" height="27"/>',
+    '<rect class="ln" x="35" y="137.5" width="30" height="10.5"/>',
+    '<circle class="spot" cx="50" cy="130" r="0.7"/>',
+    '<path class="ln" d="M 43.6 121 A 6.4 6.4 0 0 1 56.4 121"/>',
+    // Corner arcs (quarter circles, 2 units in from each corner)
+    '<path class="ln" d="M 4 2 A 2 2 0 0 1 2 4"/>',
+    '<path class="ln" d="M 96 2 A 2 2 0 0 0 98 4"/>',
+    '<path class="ln" d="M 2 146 A 2 2 0 0 0 4 148"/>',
+    '<path class="ln" d="M 98 146 A 2 2 0 0 1 96 148"/>',
+    // Goal stubs (visible bands just outside the goal line)
+    '<rect class="goal" x="44" y="0" width="12" height="1.5"/>',
+    '<rect class="goal" x="44" y="148.5" width="12" height="1.5"/>',
+  ];
+  return '<svg class="dt-pitch-bg" viewBox="0 0 100 150" preserveAspectRatio="none" aria-hidden="true">' +
+         lines.join('') +
+         '</svg>';
+})();
+
 /* Football-style time format: "12'" for whole minutes, "12'30\"" with seconds. */
 function formatGameTime(sec) {
   const m = Math.floor(sec / 60);
@@ -4674,6 +4741,12 @@ function renderDetailModal() {
   const field = fieldAtSec(g, sec);
   const anyHi = anyHighlightActive();
   html += '<div class="detail-pitch-wrap" id="dt-pitch">';
+  // SVG markings layer (boundary, halfway, center circle, penalty + goal
+  // areas, penalty arcs, penalty spots, corner arcs, goal stubs).
+  // Proportions mirror MatchOps-Local SOCCER_FIELD_CONFIG: penaltyArea
+  // 60%×18%, goalArea 30%×7%, centerCircle r=8% of width, penaltyArc r=80%
+  // of centerCircle, penaltySpotDistance 12% of height, cornerArc r=2%.
+  html += PITCH_BG_SVG;
   for (const role of formation.roles) {
     const player = field[role.name] || '';
     const left = (role.relX * 100).toFixed(2) + '%';
