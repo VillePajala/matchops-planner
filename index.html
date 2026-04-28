@@ -1213,6 +1213,63 @@ input[type="checkbox"] { accent-color: var(--success); cursor: pointer; }
 .sheet-bench-chip:hover { background: rgba(56,189,248,0.2); }
 .sheet-bench-chip:active { transform: scale(0.96); }
 
+/* ══════════════════ View toggle (Single / Grid on Games tab) ══════════════════ */
+.view-toggle {
+  display: flex; gap: 4px;
+  margin: 0 0 10px;
+  padding: 3px;
+  background: rgba(15,23,42,0.7);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--r-md);
+  width: fit-content;
+}
+.view-toggle:empty { display: none; }
+.view-toggle-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 12px;
+  font-size: 12px; font-weight: 700;
+  letter-spacing: 0.4px; text-transform: uppercase;
+  color: var(--text-mute);
+  border-radius: var(--r-sm);
+  transition: background 0.12s, color 0.12s;
+}
+.view-toggle-btn.active {
+  background: var(--accent);
+  color: var(--primary-text-on-amber);
+}
+.view-toggle-btn:not(.active):hover { color: var(--text); background: rgba(71,85,105,0.5); }
+
+/* ══════════════════ Grid view: all games side-by-side ══════════════════ */
+.games-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+  gap: 14px;
+  margin-top: 6px;
+}
+#tab-games.view-grid .pitch-card {
+  margin-bottom: 0;
+  max-width: none;
+}
+.pitch-card.card-excluded {
+  opacity: 0.55;
+}
+.pitch-card.card-excluded .pitch-card-title::after {
+  content: ' · excluded';
+  font-size: 11px;
+  color: var(--text-mute);
+  font-weight: 500;
+  letter-spacing: 0.3px;
+}
+#tab-games.view-grid .game-toolbar { margin-bottom: 12px; }
+#tab-games.view-grid .game-min-strip { margin-bottom: 12px; margin-top: 0; }
+#tab-games.view-grid .ribbon { display: none; }
+#tab-games.view-grid .plan-name { margin-bottom: 4px; }
+
+/* In grid mode at desktop widths, expand the content area so 3-4 cards fit. */
+@media (min-width: 900px) {
+  #tab-games.view-grid ~ * { /* no-op selector kept for clarity */ }
+}
+
 /* ══════════════════ Pitch card header (game label + open-detail button) ══════════════════ */
 .pitch-card-header {
   display: flex; align-items: center; justify-content: space-between;
@@ -1345,6 +1402,10 @@ input[type="checkbox"] { accent-color: var(--success); cursor: pointer; }
     max-width: 960px; margin: 0 auto;
   }
   .pitch-card { max-width: 540px; margin-left: auto; margin-right: auto; margin-bottom: 12px; }
+  /* Desktop grid mode: drop the centred 960px cap so 3-4 cards can fit, and
+     let cards stretch to the column width (no internal 540px cap). */
+  body:has(#tab-games.view-grid.tab-panel.active) .content { max-width: 1600px; }
+  #tab-games.view-grid .pitch-card { max-width: none; margin: 0; }
 }
 </style>
 </head>
@@ -1376,6 +1437,7 @@ input[type="checkbox"] { accent-color: var(--success); cursor: pointer; }
 
   <!-- Games tab -->
   <section id="tab-games" class="tab-panel active">
+    <div id="view-toggle" class="view-toggle"></div>
     <div id="ribbon" class="ribbon"></div>
     <div id="plan-name" class="plan-name" title="Go to Plans tab"></div>
     <div class="game-detail-wrap"><div id="game-detail"></div></div>
@@ -1854,7 +1916,24 @@ let activeGame = 0;          // which game the ribbon is focused on
 let activeTab = 'games';     // 'games' | 'minutes' | 'plans' | 'settings'
 const highlightedPlayers = new Set();
 let tapSelected = null;      // { game, role, startSec }
-let benchOpenFor = null;     // legacy, retained for collapsed bench drawer per game
+let benchOpenFor = null;     // legacy, retained only for any stale references
+const benchOpenSet = new Set(); // game indices whose bench drawer is open
+// View mode for the Games tab: 'single' (one game card + ribbon, phone default)
+// or 'grid' (all games side-by-side, desktop default). Persisted in localStorage.
+const VIEW_MODE_KEY = 'matchops-planner-view-mode';
+let viewMode = (function () {
+  try {
+    const stored = localStorage.getItem(VIEW_MODE_KEY);
+    if (stored === 'single' || stored === 'grid') return stored;
+  } catch (_) {}
+  return (typeof window !== 'undefined' && window.innerWidth >= 900) ? 'grid' : 'single';
+})();
+function setViewMode(m) {
+  if (m !== 'single' && m !== 'grid') return;
+  viewMode = m;
+  try { localStorage.setItem(VIEW_MODE_KEY, m); } catch (_) {}
+  renderGamesTab();
+}
 
 // Detail overlay state
 let detailGameIdx = -1;
@@ -2660,8 +2739,32 @@ function updateVersionBadge() {
 
 /* ─── Games tab ─── */
 function renderGamesTab() {
-  renderRibbon();
+  renderViewToggle();
+  // Ribbon is only useful in Single mode; Grid mode shows every game card directly.
+  if (viewMode === 'single') {
+    renderRibbon();
+  } else {
+    const ribbon = document.getElementById('ribbon');
+    if (ribbon) ribbon.innerHTML = '';
+  }
   renderGameDetail();
+}
+function renderViewToggle() {
+  const host = document.getElementById('view-toggle');
+  if (!host) return;
+  const isGrid = viewMode === 'grid';
+  host.innerHTML =
+    '<button type="button" class="view-toggle-btn' + (isGrid ? '' : ' active') + '" data-vm="single" title="Single game view">' +
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14"><rect x="4" y="5" width="16" height="14" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>' +
+      '<span>Single</span>' +
+    '</button>' +
+    '<button type="button" class="view-toggle-btn' + (isGrid ? ' active' : '') + '" data-vm="grid" title="All games side-by-side">' +
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14"><rect x="3.5" y="5" width="7.5" height="14" rx="1" fill="none" stroke="currentColor" stroke-width="1.8"/><rect x="13" y="5" width="7.5" height="14" rx="1" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>' +
+      '<span>Grid</span>' +
+    '</button>';
+  host.querySelectorAll('.view-toggle-btn').forEach(b => {
+    b.addEventListener('click', () => setViewMode(b.dataset.vm));
+  });
 }
 function renderRibbon() {
   const container = document.getElementById('ribbon');
@@ -2731,36 +2834,33 @@ function chipHtml(gameIdx, role, startSec, segIdx, segMin, player, extraClass) {
     '<span class="chip-name">' + escapeHtml(player || '') + '</span>' + barHtml + '</div>';
 }
 
-function renderGameDetail() {
-  const gIdx = activeGame;
+/* Build the HTML for a single game's pitch card (pitch + bench drawer).
+   Used by both Single mode (one card for activeGame) and Grid mode
+   (every included game side-by-side). Does NOT include the game-toolbar
+   or tournament-totals strip — those are rendered once and shared. */
+function renderGameCardHtml(gIdx) {
   const g = tournament.games[gIdx];
-  if (!g) { document.getElementById('game-detail').innerHTML = ''; return; }
-  const view = document.getElementById('game-detail');
+  if (!g) return '';
   const benchedNeverPlay = new Set(benchedBothHalves(gIdx));
   const formation = getFormation(tournament.formationId);
   const rows = formationRows(formation);
-  const benchOpen = benchOpenFor === gIdx;
+  const benchOpen = benchOpenSet.has(gIdx);
   const durationSec = gameTotalSec(g);
   const halfSec = gameHalfTimeSec(g);
   const htPct = halfSec > 0 ? (halfSec / durationSec * 100).toFixed(2) + '%' : '50%';
 
-  // Header (game name + opponent + Detail button)
   const headerLine = (g.label || ('Game ' + (gIdx + 1))) + ' · ' + (g.opponent || 'TBD');
 
-  const canUndo = historyIndex > 0;
-  const canRedo = historyIndex < history.length - 1;
   let html = '';
-
-  // Pitch card
-  html += '<div class="pitch-card">';
+  const cardCls = 'pitch-card' + (included[gIdx] ? '' : ' card-excluded');
+  html += '<div class="' + cardCls + '" data-game-card="' + gIdx + '">';
   html +=   '<div class="pitch-card-header">';
   html +=     '<span class="pitch-card-title">' + escapeHtml(headerLine) + '</span>';
-  html +=     '<button class="icon-btn pitch-detail-btn" id="open-detail" title="Open detail view" aria-label="Open detail view">' +
+  html +=     '<button class="icon-btn pitch-detail-btn" data-detail-for="' + gIdx + '" title="Open detail view" aria-label="Open detail view">' +
                 '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z"/><path d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/></svg>' +
               '</button>';
   html +=   '</div>';
   html +=   '<div class="pitch">';
-  // Each row: roles sorted left-to-right by relX. Outfield rows first, GK row last.
   for (const row of rows) {
     html += '<div class="pitch-row">';
     for (const role of row.roles) {
@@ -2770,7 +2870,6 @@ function renderGameDetail() {
       html +=   '<div class="pos-label"><span class="pos-name">' + escapeHtml(role.name) + '</span></div>';
       html +=   '<div class="chip-row' + (isFull ? ' full-game' : '') + '" style="--ht-pct:' + htPct + ';">';
       const playsBothAtHalf = (player) => {
-        // For visual emphasis: a player who appears in multiple distinct segments at this role.
         let count = 0;
         for (const s of segs) if (s.player === player) count++;
         return count > 1 ? 'plays-both' : '';
@@ -2780,8 +2879,6 @@ function renderGameDetail() {
         const extra = playsBothAtHalf(seg.player);
         html += chipHtml(gIdx, role.name, seg.startSec, seg.segIdx, segMin, seg.player, extra);
       }
-      // Always render the divider when the game has 2 halves, even on full-game
-      // chips — it's a visual guide so the coach can plan a sub at the boundary.
       if (halfSec > 0) html += '<div class="ht-divider"></div>';
       html +=   '</div>';
       html += '</div>';
@@ -2790,19 +2887,17 @@ function renderGameDetail() {
   }
   html +=   '</div>';
 
-  // Bench drawer. For 2-half games, show two rows: bench at kickoff and
-  // bench at the start of the second half (post-half-time).
+  // Bench drawer
   const benchPlayersAtKickoff = benchAtSec(g, 0);
   const showHalfTimeBench = halfSec > 0;
   const benchPlayersAtHT = showHalfTimeBench ? benchAtSec(g, halfSec) : [];
   const benchCountLabel = showHalfTimeBench
     ? (benchPlayersAtKickoff.length + ' / ' + benchPlayersAtHT.length)
     : String(benchPlayersAtKickoff.length);
-  html +=   '<button class="bench-drawer-toggle" id="bench-toggle" aria-expanded="' + benchOpen + '">' +
+  html +=   '<button class="bench-drawer-toggle" data-bench-toggle="' + gIdx + '" aria-expanded="' + benchOpen + '">' +
               '<span>Bench (' + benchCountLabel + ')</span><span class="chev">▼</span>' +
             '</button>';
-  html +=   '<div class="bench-section' + (benchOpen ? ' open' : '') + '" id="bench-section">';
-  // Kickoff bench
+  html +=   '<div class="bench-section' + (benchOpen ? ' open' : '') + '">';
   if (showHalfTimeBench) html += '<div class="bench-row-label">Kickoff</div>';
   html +=     '<div class="bench-row"><div class="chip-row">' +
                 benchPlayersAtKickoff.map((pl) => {
@@ -2810,7 +2905,6 @@ function renderGameDetail() {
                   return chipHtml(gIdx, '__BENCH__', 0, 0, 1, pl, extra);
                 }).join('') +
               '</div></div>';
-  // Post-half-time bench (only when game has 2 halves)
   if (showHalfTimeBench) {
     const halfMinLabel = Math.round(halfSec / 60 * 2) / 2;
     const halfMinStr = halfMinLabel % 1 === 0 ? String(halfMinLabel) : halfMinLabel.toFixed(1);
@@ -2823,13 +2917,17 @@ function renderGameDetail() {
               '</div></div>';
   }
   html +=   '</div>';
+  html += '</div>'; // close .pitch-card
+  return html;
+}
 
-  // Tournament-totals strip (replaces the old per-game strip).
-  // Shows every player as a ratio-coloured cell — red under, yellow near,
-  // green over — sorted ascending by tournament minutes.
-  html +=   '<div class="game-min-strip totals">';
-  html +=     '<h4>Tournament totals</h4>';
-  html +=     '<div class="strip-row">';
+/* Tournament-totals strip — shared across both view modes. Single mode
+   renders it once per active card; Grid mode renders it once above the
+   grid since it's identical for every game. */
+function renderTournamentTotalsHtml() {
+  let html = '<div class="game-min-strip totals">';
+  html +=   '<h4>Tournament totals</h4>';
+  html +=   '<div class="strip-row">';
   const sortedForStrip = PLAYERS.slice().sort((a, b) => {
     const d = playerTotalSec(a) - playerTotalSec(b);
     if (d !== 0) return d;
@@ -2850,13 +2948,17 @@ function renderGameDetail() {
       '<span class="strip-init">' + playerInitials(pl) + '</span>' +
     '</button>';
   }).join('');
-  html +=     '</div>';
   html +=   '</div>';
-
   html += '</div>';
+  return html;
+}
 
-  // Undo / Redo — placed AFTER the game field, MatchOps-style SVG icons
-  html += '<div class="game-toolbar after-pitch">';
+/* Toolbar (fair-share + undo/redo). Single mode places it after the active
+   card; Grid mode places it once above the grid. */
+function renderGameToolbarHtml() {
+  const canUndo = historyIndex > 0;
+  const canRedo = historyIndex < history.length - 1;
+  let html = '<div class="game-toolbar after-pitch">';
   html +=   '<button class="btn primary game-toolbar-action" id="btn-fair-share-game" title="Rebuild starting XI + half-time subs across included games to balance minutes">Suggest fair-share play time</button>';
   html +=   '<button class="icon-btn" id="btn-undo" ' + (canUndo ? '' : 'disabled') + ' title="Undo" aria-label="Undo">' +
               '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">' +
@@ -2869,12 +2971,48 @@ function renderGameDetail() {
               '</svg>' +
             '</button>';
   html += '</div>';
+  return html;
+}
 
+function renderGameDetail() {
+  const view = document.getElementById('game-detail');
+  if (!view) return;
+  const tabGames = document.getElementById('tab-games');
+  const isGrid = viewMode === 'grid';
+  tabGames.classList.toggle('view-grid', isGrid);
+  tabGames.classList.toggle('view-single', !isGrid);
+
+  let html = '';
+  if (isGrid) {
+    // Grid mode: shared toolbar + totals + grid of all games (or only included games).
+    html += renderGameToolbarHtml();
+    html += renderTournamentTotalsHtml();
+    html += '<div class="games-grid">';
+    for (let i = 0; i < tournament.games.length; i++) {
+      html += renderGameCardHtml(i);
+    }
+    html += '</div>';
+  } else {
+    // Single mode (current): one game's card + totals strip inside the card,
+    // then the toolbar after.
+    const gIdx = activeGame;
+    const g = tournament.games[gIdx];
+    if (!g) { view.innerHTML = ''; return; }
+    // Card with totals strip embedded inside (legacy layout for single mode).
+    let card = renderGameCardHtml(gIdx);
+    // Inject totals strip just before the closing </div> of the card.
+    const closeIdx = card.lastIndexOf('</div>');
+    card = card.slice(0, closeIdx) + renderTournamentTotalsHtml() + card.slice(closeIdx);
+    html += card;
+    html += renderGameToolbarHtml();
+  }
   view.innerHTML = html;
 
   // Handlers
-  document.getElementById('btn-undo').addEventListener('click', undo);
-  document.getElementById('btn-redo').addEventListener('click', redo);
+  const undoBtn = document.getElementById('btn-undo');
+  if (undoBtn) undoBtn.addEventListener('click', undo);
+  const redoBtn = document.getElementById('btn-redo');
+  if (redoBtn) redoBtn.addEventListener('click', redo);
   const fsBtnGame = document.getElementById('btn-fair-share-game');
   if (fsBtnGame) fsBtnGame.addEventListener('click', () => {
     const includedCount = included.filter(Boolean).length;
@@ -2882,11 +3020,22 @@ function renderGameDetail() {
     if (!confirm('Rebuild starting XI + half-time subs across ' + includedCount + ' included game(s) to balance minutes? Existing subs will be replaced. Use Undo to roll back.')) return;
     suggestFairShareLineup();
   });
-  const detailBtn = document.getElementById('open-detail');
-  if (detailBtn) detailBtn.addEventListener('click', () => openDetailModal(gIdx));
-  document.getElementById('bench-toggle').addEventListener('click', () => {
-    benchOpenFor = benchOpen ? null : gIdx;
-    renderGameDetail();
+  // Open-detail buttons (one per card in grid mode, one in single mode).
+  view.querySelectorAll('[data-detail-for]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const idx = parseInt(btn.dataset.detailFor, 10);
+      if (Number.isFinite(idx)) openDetailModal(idx);
+    });
+  });
+  // Bench-drawer toggles (per card).
+  view.querySelectorAll('[data-bench-toggle]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const idx = parseInt(btn.dataset.benchToggle, 10);
+      if (!Number.isFinite(idx)) return;
+      if (benchOpenSet.has(idx)) benchOpenSet.delete(idx);
+      else benchOpenSet.add(idx);
+      renderGameDetail();
+    });
   });
   // Strip cells → highlight / open per-player sheet
   view.querySelectorAll('.game-min-strip .strip-cell').forEach(cell => {
