@@ -504,31 +504,68 @@ button { border: none; background: none; color: inherit; cursor: pointer; }
 }
 .chip-name { display: inline; }
 
-/* Kebab/menu button that appears on chip hover for mouse users. Hidden by
-   default, revealed on hover only on devices with a real pointer (mouse).
-   Phones / touch screens fall back to long-press, which still works. */
-.chip-menu-btn {
-  position: absolute;
-  top: 1px; right: 1px;
-  width: 18px; height: 18px;
-  display: inline-flex; align-items: center; justify-content: center;
-  background: rgba(15, 23, 42, 0.55);
-  color: rgba(255,255,255,0.92);
-  border-radius: 4px;
-  font-size: 13px; font-weight: 700;
-  line-height: 1;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.12s, background 0.12s;
-  z-index: 3;
+/* Position-level menu button — gear icon at the right end of each
+   pos-label header. Always visible (small footprint), works the same
+   on phone (tap) and desktop (click). Opens a position-level sheet. */
+.pos-label {
+  position: relative;
 }
-.chip-menu-btn:hover { background: rgba(15, 23, 42, 0.85); }
-@media (hover: hover) and (pointer: fine) {
-  .slot:hover .chip-menu-btn,
-  .slot:focus-within .chip-menu-btn {
-    opacity: 1;
-    pointer-events: auto;
-  }
+.pos-menu-btn {
+  position: absolute;
+  right: -1px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: rgba(0,0,0,0.28);
+  color: rgba(255,255,255,0.85);
+  border-radius: 3px;
+  padding: 0;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, transform 0.1s;
+}
+.pos-menu-btn:hover {
+  background: rgba(0,0,0,0.55);
+  color: #fff;
+}
+.pos-menu-btn:active { transform: translateY(-50%) scale(0.92); }
+.pos-menu-btn svg { display: block; }
+
+/* Position-sheet body styles (rendered into #sheet-body when openPositionSheet runs). */
+.pos-sheet-segments {
+  display: flex; flex-direction: column; gap: 6px;
+}
+.pos-sheet-segment-btn {
+  display: flex; align-items: center; gap: 8px;
+  width: 100%;
+  padding: 10px 12px;
+  background: rgba(15,23,42,0.55);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--r-sm);
+  color: var(--text);
+  text-align: left;
+  font-size: 13px;
+  cursor: pointer;
+}
+.pos-sheet-segment-btn:hover { background: rgba(30,41,59,0.85); border-color: var(--border); }
+.pos-sheet-segment-btn .pss-time {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: var(--accent);
+  min-width: 76px;
+  font-size: 12px;
+}
+.pos-sheet-segment-btn .pss-name {
+  flex: 1; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-weight: 600;
+}
+.pos-sheet-segment-btn .pss-tag {
+  font-size: 10px; font-weight: 700;
+  color: var(--text-mute);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
 }
 
 .slot:active { cursor: grabbing; transform: scale(0.96); }
@@ -2881,16 +2918,9 @@ function chipHtml(gameIdx, role, startSec, segIdx, segMin, player, extraClass) {
   }
   const flex = Math.max(1, Math.round(segMin || 0));
   const benchAttr = role === '__BENCH__' ? ' data-bench-player="' + escapeHtml(player || '') + '"' : '';
-  // Kebab button — only meaningful when there's actually a player here.
-  // Always rendered (kept out of touch flow via the (hover:hover) media query
-  // in CSS) so desktop users have a discoverable click target instead of
-  // having to right-click.
-  const kebab = player
-    ? '<button type="button" class="chip-menu-btn" tabindex="-1" aria-label="Chip actions" title="Actions">⋮</button>'
-    : '';
   return '<div class="' + cls + '" data-game="' + gameIdx + '" data-role="' + escapeHtml(role) + '" data-start="' + startSec + '" data-segidx="' + segIdx + '"' + benchAttr + ' style="--seg-flex:' + flex + ';" draggable="true">' +
     minuteBadge +
-    '<span class="chip-name">' + escapeHtml(player || '') + '</span>' + barHtml + kebab + '</div>';
+    '<span class="chip-name">' + escapeHtml(player || '') + '</span>' + barHtml + '</div>';
 }
 
 /* Build the HTML for a single game's pitch card (pitch + bench drawer).
@@ -2926,7 +2956,14 @@ function renderGameCardHtml(gIdx) {
       const segs = getCellSegments(g, role.name);
       const isFull = segs.length === 1;
       html += '<div class="pos-box">';
-      html +=   '<div class="pos-label"><span class="pos-name">' + escapeHtml(role.name) + '</span></div>';
+      html +=   '<div class="pos-label">';
+      html +=     '<span class="pos-name">' + escapeHtml(role.name) + '</span>';
+      html +=     '<button type="button" class="pos-menu-btn" tabindex="-1" data-pos-menu="' + gIdx + '|' + escapeHtml(role.name) + '" title="Position actions" aria-label="Position actions">' +
+                    '<svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor" aria-hidden="true">' +
+                      '<path d="M19.43 12.98c.04-.32.07-.65.07-.98s-.03-.66-.07-.98l2.11-1.65a.5.5 0 0 0 .12-.64l-2-3.46a.5.5 0 0 0-.61-.22l-2.49 1a7.03 7.03 0 0 0-1.69-.98l-.38-2.65A.5.5 0 0 0 14 2h-4a.5.5 0 0 0-.49.42l-.38 2.65c-.61.24-1.18.57-1.69.98l-2.49-1a.5.5 0 0 0-.61.22l-2 3.46a.5.5 0 0 0 .12.64l2.11 1.65c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65a.5.5 0 0 0-.12.64l2 3.46c.14.22.43.31.66.22l2.49-1c.51.41 1.08.74 1.69.98l.38 2.65c.05.24.25.42.49.42h4c.24 0 .44-.18.49-.42l.38-2.65c.61-.24 1.18-.57 1.69-.98l2.49 1c.23.09.52 0 .66-.22l2-3.46a.5.5 0 0 0-.12-.64l-2.11-1.65zM12 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z"/>' +
+                    '</svg>' +
+                  '</button>';
+      html +=   '</div>';
       html +=   '<div class="chip-row' + (isFull ? ' full-game' : '') + '" style="--ht-pct:' + htPct + ';">';
       const playsBothAtHalf = (player) => {
         let count = 0;
@@ -3114,11 +3151,7 @@ function renderGameDetail() {
     slot.addEventListener('dragleave', onDragLeave);
     slot.addEventListener('drop', onDrop);
     slot.addEventListener('dragend', onDragEnd);
-    slot.addEventListener('click', (e) => {
-      // The kebab button shouldn't trigger select-for-swap; check the target.
-      if (e.target.closest('.chip-menu-btn')) return;
-      onChipClick(e);
-    });
+    slot.addEventListener('click', onChipClick);
     slot.addEventListener('contextmenu', (e) => { e.preventDefault(); openChipSheet(slot); });
     // long-press for touch
     let t = null;
@@ -3126,16 +3159,16 @@ function renderGameDetail() {
     slot.addEventListener('touchend',   () => { if (t) { clearTimeout(t); t = null; } });
     slot.addEventListener('touchmove',  () => { if (t) { clearTimeout(t); t = null; } });
   });
-  // Kebab buttons — explicit click target for mouse users to open the sheet.
-  view.querySelectorAll('.chip-menu-btn').forEach(btn => {
+  // Position-level gear buttons in each pos-label header.
+  view.querySelectorAll('[data-pos-menu]').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       e.preventDefault();
-      const slot = btn.closest('.slot');
-      if (slot) openChipSheet(slot);
+      const [g, r] = btn.dataset.posMenu.split('|');
+      const gIdx = parseInt(g, 10);
+      if (!Number.isFinite(gIdx) || !r) return;
+      openPositionSheet(gIdx, r);
     });
-    // Don't initiate a drag from the kebab — it should be a button-click only.
-    btn.addEventListener('dragstart', (e) => { e.preventDefault(); e.stopPropagation(); });
   });
 }
 
@@ -3823,6 +3856,67 @@ function openChipSheet(slot) {
   const benchPlayer = isBench ? (slot.dataset.benchPlayer || '') : '';
   openSegmentSheet(gIdx, role, startSec, isBench, benchPlayer);
 }
+/* Position-level sheet opened from the gear icon on each pos-label header.
+   Lists every segment of this position with its time range and player; tap
+   one to drill into the existing per-segment actions sheet. Top action is
+   "Add sub at minute…" with a gamewide minute range so the user doesn't
+   need to drill in first to add a sub anywhere in the game. */
+function openPositionSheet(gIdx, role) {
+  const g = tournament.games[gIdx];
+  if (!g) return;
+  const segs = getCellSegments(g, role);
+  const titleText = 'Position: ' + role;
+  const subText = (g.label || ('Game ' + (gIdx + 1))) + ' · ' + (g.opponent || 'TBD');
+
+  const renderForm = (host) => {
+    host.innerHTML = '';
+    const sectionLabel = document.createElement('div');
+    sectionLabel.className = 'sheet-section-label';
+    sectionLabel.textContent = segs.length === 1 ? 'Player on the field:' : 'Segments — tap one to edit:';
+    host.appendChild(sectionLabel);
+
+    const list = document.createElement('div');
+    list.className = 'pos-sheet-segments';
+    segs.forEach(seg => {
+      const startMin = seg.startSec / 60;
+      const endMin = seg.endSec / 60;
+      const fmt = (m) => m % 1 === 0 ? String(m) : m.toFixed(1);
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'pos-sheet-segment-btn';
+      btn.innerHTML =
+        '<span class="pss-time">' + fmt(startMin) + "'–" + fmt(endMin) + "'</span>" +
+        '<span class="pss-name">' + escapeHtml(seg.player || '—') + '</span>' +
+        (seg.segIdx > 0 ? '<span class="pss-tag">sub</span>' : '');
+      btn.addEventListener('click', () => {
+        closeSheet();
+        // Re-open as the per-segment sheet so the existing Move / Replace /
+        // Remove actions are available without rebuilding them here.
+        setTimeout(() => openSegmentSheet(gIdx, role, seg.startSec, false, ''), 160);
+      });
+      list.appendChild(btn);
+    });
+    host.appendChild(list);
+  };
+
+  const actions = [
+    {
+      label: 'Add sub at minute…', variant: 'primary',
+      onClick: () => {
+        // Gamewide range — synthesise a "whole game" segment so openAddSubSheet's
+        // existing minute-range logic naturally covers any time in the game.
+        const durationSec = gameTotalSec(g);
+        openAddSubSheet(gIdx, role, { startSec: 0, endSec: durationSec, player: '', segIdx: 0 });
+      }
+    },
+    { label: 'Cancel', onClick: () => {} },
+  ];
+
+  openSheet(titleText, subText, actions, {
+    onBodyMount: (host) => renderForm(host)
+  });
+}
+
 /* Move an existing sub to a different minute. The new time must sit strictly
    between the previous and next sub at the same role (so the sub list remains
    ordered without renaming "first half" or "second half" semantics). */
