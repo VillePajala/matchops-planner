@@ -365,14 +365,19 @@ button { border: none; background: none; color: inherit; cursor: pointer; }
   content: '✓'; font-size: 10px; font-weight: 900; color: #0f172a; line-height: 1;
 }
 
-/* Game toolbar (undo/redo) — now placed AFTER the pitch card */
+/* Game toolbar — fair-share + undo/redo */
 .game-toolbar {
-  display: flex; align-items: center; justify-content: flex-end; gap: 8px;
+  display: flex; align-items: center; gap: 8px;
   margin-bottom: 10px;
 }
 .game-toolbar.after-pitch {
   margin-top: 4px;
   margin-bottom: 16px;
+}
+.game-toolbar .game-toolbar-action {
+  flex: 1 1 auto;
+  width: auto;
+  /* Default .btn is full-width; override here so it sits inline next to icon buttons. */
 }
 .icon-btn {
   width: 36px; height: 36px; border-radius: var(--r-md);
@@ -1622,6 +1627,27 @@ const FORMATIONS = [
       { name: 'ST',  relX: 0.50, relY: 0.25 },
     ]},
 ];
+/* Tag every formation role with a stamina/sub hint, used by the fair-share
+   suggester. GK is always 'never' (almost never subbed). Roles that
+   conventionally play full game ('preserved') sit in the back line and
+   central spine; flank/wing/striker roles are 'preferred' (typically
+   subbed at half-time so a bench player can come on). User's note: in
+   5v5 all outfield roles are equal — no preserved roles. */
+const _STAMINA_PRESERVED = {
+  '3v3':   new Set(['DEF']),
+  '5v5':   new Set([]),
+  '8v8':   new Set(['LB','CB','RB','CDM','CM','CAM']),
+  '11v11': new Set(['LB','LCB','RCB','CB','RB','LDM','RDM','CDM','LCM','CM','RCM','CAM']),
+};
+(function tagRoleStamina() {
+  for (const f of FORMATIONS) {
+    const preserved = _STAMINA_PRESERVED[f.fieldSize] || new Set();
+    for (const r of f.roles) {
+      r.sub = r.name === 'GK' ? 'never' : (preserved.has(r.name) ? 'preserved' : 'preferred');
+    }
+  }
+})();
+
 function getFormation(id) { return FORMATIONS.find(f => f.id === id) || FORMATIONS.find(f => f.id === '8v8-2-1-2-1-1'); }
 function formationRoleNames(formation) { return formation.roles.map(r => r.name); }
 // Group roles into rows (top-of-pitch first, GK as last bottom row).
@@ -2831,6 +2857,7 @@ function renderGameDetail() {
 
   // Undo / Redo — placed AFTER the game field, MatchOps-style SVG icons
   html += '<div class="game-toolbar after-pitch">';
+  html +=   '<button class="btn primary game-toolbar-action" id="btn-fair-share-game" title="Rebuild starting XI + half-time subs across included games to balance minutes">Suggest fair-share play time</button>';
   html +=   '<button class="icon-btn" id="btn-undo" ' + (canUndo ? '' : 'disabled') + ' title="Undo" aria-label="Undo">' +
               '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">' +
                 '<path d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3"/>' +
@@ -2848,6 +2875,13 @@ function renderGameDetail() {
   // Handlers
   document.getElementById('btn-undo').addEventListener('click', undo);
   document.getElementById('btn-redo').addEventListener('click', redo);
+  const fsBtnGame = document.getElementById('btn-fair-share-game');
+  if (fsBtnGame) fsBtnGame.addEventListener('click', () => {
+    const includedCount = included.filter(Boolean).length;
+    if (includedCount === 0) { alert('No games are included. Toggle game inclusion in the ribbon first.'); return; }
+    if (!confirm('Rebuild starting XI + half-time subs across ' + includedCount + ' included game(s) to balance minutes? Existing subs will be replaced. Use Undo to roll back.')) return;
+    suggestFairShareLineup();
+  });
   const detailBtn = document.getElementById('open-detail');
   if (detailBtn) detailBtn.addEventListener('click', () => openDetailModal(gIdx));
   document.getElementById('bench-toggle').addEventListener('click', () => {
@@ -3981,6 +4015,25 @@ function renderSettings() {
    games in order, picking the lowest-accumulated-minutes players for each
    game's starting XI, and (for 2-period games) swapping the highest-used
    field players for the lowest-used bench players at half-time. */
+/* Role-aware fair-share balancer.
+ *
+ * Strategy:
+ *   1. For each included game, sort players ascending by accumulated minutes
+ *      (PRIORITY tiebreak — priority players prefer to be on the field on
+ *      a tie). The most under-played players become this game's full-gamers.
+ *   2. Assign roles in priority order: PRESERVED roles (GK, defenders,
+ *      defensive/attacking central mids) get the lowest-minute players —
+ *      they play the full game. PREFERRED roles (wingers, strikers,
+ *      flank-runners) get the next batch — they're the half-game players
+ *      and will be subbed off at half-time.
+ *   3. K = min(bench size, number of preferred roles). For each of the K
+ *      most-preferred-to-sub roles, schedule a half-time sub: the
+ *      first-half player goes off, the next bench player (lowest minutes
+ *      so far) comes on.
+ *   4. GK is never subbed by default. If there are no preferred roles
+ *      (e.g. small-sided 5v5 where the user said all roles are equal),
+ *      fall back to subbing in any subbable role except GK.
+ */
 function suggestFairShareLineup() {
   const formation = getFormation(tournament.formationId);
   if (!formation) return;
@@ -3989,47 +4042,59 @@ function suggestFairShareLineup() {
     alert('Roster has only ' + PLAYERS.length + ' player(s) but formation needs ' + onFieldCount + '. Add players first.');
     return;
   }
-  // Reset all included games then walk in order, accumulating minutes as we go.
+  // Reset all included games up front; walk forward and accumulate as we go.
   for (let gi = 0; gi < tournament.games.length; gi++) {
     if (!included[gi]) continue;
     const g = tournament.games[gi];
     g.scheduledSubs = [];
     for (const r of formation.roles) g.startingXI[r.name] = '';
   }
-  // Tracker: accumulated minutes per player across already-processed (included) games.
   const acc = new Map(PLAYERS.map(p => [p, 0]));
-  // Comparison: ascending by accumulated minutes; tiebreak — PRIORITY players first into field, then alphabetical.
   const cmpField = (a, b) => {
     const da = acc.get(a) - acc.get(b);
     if (da !== 0) return da;
     const aPrio = PRIORITY.has(a), bPrio = PRIORITY.has(b);
-    if (aPrio !== bPrio) return aPrio ? -1 : 1; // priority first
+    if (aPrio !== bPrio) return aPrio ? -1 : 1;
     return a.localeCompare(b);
   };
+
+  // Roles ranked for *assignment* (preserved before preferred so under-played
+  // players land in full-game roles).
+  const rolesForAssignment = formation.roles.slice().sort((a, b) => {
+    const rank = (r) => r.sub === 'never' ? 0 : (r.sub === 'preserved' ? 1 : 2);
+    return rank(a) - rank(b);
+  });
+  // Roles ranked for *subbing* (preferred first; preserved as fallback when
+  // bench is bigger than preferred-role count). GK ('never') never subbed.
+  const subbableInOrder = formation.roles.filter(r => r.sub !== 'never').slice().sort((a, b) => {
+    const rank = (r) => r.sub === 'preferred' ? 0 : 1;
+    return rank(a) - rank(b);
+  });
+
   for (let gi = 0; gi < tournament.games.length; gi++) {
     if (!included[gi]) continue;
     const g = tournament.games[gi];
-    const totalSec = gameTotalSec(g);
     const halfSec = gameHalfTimeSec(g);
     const np = gameNumberOfPeriods(g);
-    // Pick startingXI: the onFieldCount players with the lowest accumulated minutes.
-    const sorted = PLAYERS.slice().sort(cmpField);
-    const fieldPlayers = sorted.slice(0, onFieldCount);
-    const benchPlayers = sorted.slice(onFieldCount);
-    formation.roles.forEach((r, i) => {
+    const sortedAsc = PLAYERS.slice().sort(cmpField);
+
+    // Starting XI: onFieldCount lowest-min players. Assigned in role-priority
+    // order so preserved roles get the lowest-min (= fullgamers).
+    const fieldPlayers = sortedAsc.slice(0, onFieldCount);
+    const benchPlayers = sortedAsc.slice(onFieldCount);
+    rolesForAssignment.forEach((r, i) => {
       g.startingXI[r.name] = fieldPlayers[i] || '';
     });
-    // For 2-period games: schedule a half-time sub for the K most-used field players (bring in least-used bench players).
-    if (np === 2 && halfSec > 0 && halfSec < totalSec) {
-      const fieldByMost = fieldPlayers.slice().sort((a, b) => acc.get(b) - acc.get(a));
+
+    if (np === 2 && halfSec > 0 && benchPlayers.length > 0 && subbableInOrder.length > 0) {
       const benchByLeast = benchPlayers.slice().sort((a, b) => acc.get(a) - acc.get(b));
-      const swapCount = Math.min(fieldByMost.length, benchByLeast.length);
-      for (let k = 0; k < swapCount; k++) {
-        const off = fieldByMost[k];
+      const K = Math.min(benchByLeast.length, subbableInOrder.length);
+      for (let k = 0; k < K; k++) {
+        const role = subbableInOrder[k];
+        const off = g.startingXI[role.name];
         const on = benchByLeast[k];
-        // Find the role 'off' is currently in.
-        const role = formation.roles.find(r => g.startingXI[r.name] === off);
-        if (!role) continue;
+        if (!off || !on || off === on) continue;
+        if (wouldCauseDoublePosition(g, role.name, halfSec, on)) continue;
         g.scheduledSubs.push({
           id: newSubId(),
           role: role.name, timeSec: halfSec,
@@ -4038,14 +4103,15 @@ function suggestFairShareLineup() {
       }
       g.scheduledSubs.sort((a, b) => a.role.localeCompare(b.role) || a.timeSec - b.timeSec);
     }
-    // Update accumulator with this game's minutes per player (using the final segment graph).
+
+    // Update accumulator with this game's actual minutes (post-subs).
     for (const r of formation.roles) {
       for (const seg of getCellSegments(g, r.name)) {
         if (seg.player) acc.set(seg.player, (acc.get(seg.player) || 0) + (seg.endSec - seg.startSec));
       }
     }
   }
-  saveAll(); pushHistory(); renderActiveTab();
+  saveAll(); pushHistory(); _rerenderAfterMutate();
 }
 
 /* ══════════════════ Detail view modal (per-game pitch + scrubber + timeline) ══════════════════ */
