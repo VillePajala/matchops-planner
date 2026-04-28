@@ -1106,9 +1106,10 @@ input[type="checkbox"] { accent-color: var(--success); cursor: pointer; }
   /* Centre the disc on its (relX, relY) coordinate so geometry matches
      MatchOps-Local's pitch where players are anchored at their centre. */
   transform: translate(-50%, -50%);
-  background: rgba(255,255,255,0.96);
-  color: #1e293b;
-  border: 2px solid #fff;
+  /* Background and foreground come from playerRatio via inline --disc-bg/--disc-fg vars. */
+  background: var(--disc-bg, rgba(255,255,255,0.96));
+  color: var(--disc-fg, #1e293b);
+  border: 2px solid rgba(255,255,255,0.85);
   min-width: 64px; max-width: 96px;
   padding: 4px 6px;
   border-radius: 6px;
@@ -1117,11 +1118,23 @@ input[type="checkbox"] { accent-color: var(--success); cursor: pointer; }
   box-shadow: 0 2px 6px rgba(0,0,0,0.4);
   white-space: nowrap;
   overflow: hidden; text-overflow: ellipsis;
+  cursor: pointer;
+  transition: filter 0.15s, opacity 0.15s, transform 0.1s;
 }
+.detail-disc:hover { filter: brightness(1.1); }
+.detail-disc:active { transform: translate(-50%, -50%) scale(0.95); }
+.detail-disc.highlighted {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+  z-index: 5;
+}
+.detail-disc.dimmed { opacity: 0.42; }
 .detail-disc .dd-role {
   display: block;
   font-size: 8px; font-weight: 800;
-  color: #64748b; letter-spacing: 0.5px;
+  color: var(--disc-fg, #64748b);
+  opacity: 0.75;
+  letter-spacing: 0.5px;
   text-transform: uppercase;
 }
 .detail-disc .dd-name {
@@ -1129,19 +1142,35 @@ input[type="checkbox"] { accent-color: var(--success); cursor: pointer; }
   font-size: 11px; font-weight: 700;
 }
 .detail-scrubber {
-  display: flex; align-items: center; gap: 10px;
+  display: flex; align-items: center; gap: 8px;
   padding: 10px 12px;
   background: rgba(15,23,42,0.55);
   border: 1px solid var(--border-soft);
   border-radius: var(--r-md);
   margin-bottom: 12px;
 }
-.detail-scrubber input[type="range"] { flex: 1; }
+.detail-scrubber input[type="range"] { flex: 1; min-width: 0; }
 .detail-scrubber .dt-time {
   font-variant-numeric: tabular-nums;
   font-weight: 700; color: var(--accent);
-  min-width: 64px; text-align: right;
+  min-width: 56px; text-align: right;
 }
+/* Prev / next snap buttons. Step through kickoff → sub times → halftime → end. */
+.dt-step-btn {
+  width: 32px; height: 32px;
+  flex-shrink: 0;
+  background: var(--bg-elev);
+  border: 1px solid var(--border-soft);
+  color: var(--text-dim);
+  border-radius: var(--r-sm);
+  font-size: 18px; font-weight: 700;
+  line-height: 1;
+  display: inline-flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, transform 0.1s;
+}
+.dt-step-btn:hover { color: var(--text); background: rgba(71,85,105,0.9); }
+.dt-step-btn:active { transform: scale(0.94); }
 .detail-timeline {
   display: flex; flex-direction: column; gap: 5px;
   padding: 10px 12px;
@@ -1196,11 +1225,51 @@ input[type="checkbox"] { accent-color: var(--success); cursor: pointer; }
   position: absolute; top: -3px; bottom: -3px;
   width: 2px; background: var(--accent);
   box-shadow: 0 0 0 1px rgba(0,0,0,0.45);
+  z-index: 4;
 }
 .dt-track .dt-half {
-  position: absolute; top: 0; bottom: 0;
-  width: 0; border-left: 1px dashed rgba(255,255,255,0.45);
+  /* Stronger halftime guide so it stands out against the dark track. */
+  position: absolute; top: -2px; bottom: -2px;
+  width: 0;
+  border-left: 2px dashed rgba(251,191,36,0.85);
+  z-index: 2;
 }
+/* Highlight propagation in segments (matches highlightedPlayers set). */
+.dt-track .dt-seg.dt-seg-hl {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+  z-index: 3;
+  filter: brightness(1.05);
+}
+.dt-track .dt-seg.dt-seg-dim { opacity: 0.42; }
+
+/* Tier labels — small section dividers above each group of role rows. */
+.dt-tier-label {
+  font-size: 9px; font-weight: 800;
+  color: var(--text-mute);
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  margin: 6px 0 2px 0;
+  padding-left: 2px;
+}
+.dt-tier-label:first-child { margin-top: 0; }
+.detail-timeline h4 + .dt-tier-label { margin-top: 0; }
+
+/* Bench row — neutral tone so it reads as "off the field" vs the warm
+   played-segment colours. Listing names in a single segment helps spot
+   "who's available right now" at a glance. */
+.dt-track-bench {
+  background: rgba(0,0,0,0.55);
+}
+.dt-seg-bench {
+  background: rgba(232,232,232,0.85) !important;
+  color: #444 !important;
+  font-size: 9px !important;
+  font-weight: 600 !important;
+  border-right-color: rgba(0,0,0,0.25) !important;
+  cursor: default !important;
+}
+.dt-seg-bench:hover { filter: none !important; }
 
 /* ══════════════════ Settings tools section ══════════════════ */
 .settings-tools-hint {
@@ -4442,6 +4511,60 @@ function closeDetailModal() {
   detailGameIdx = -1;
   document.getElementById('detail-overlay').classList.remove('open');
 }
+
+/* Football-style time format: "12'" for whole minutes, "12'30\"" with seconds. */
+function formatGameTime(sec) {
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60);
+  if (s === 0) return m + "'";
+  return m + "'" + String(s).padStart(2, '0') + '"';
+}
+/* Group formation roles into football tiers using relY zones — matches
+   MatchOps-Local's positionLabels.ts thresholds. Returns { GK, DEF, MID, ATT }
+   each with the roles that fall into that band. */
+function groupRolesByTier(roles) {
+  const tiers = { GK: [], DEF: [], MID: [], ATT: [] };
+  for (const r of roles) {
+    if (r.name === 'GK' || r.relY >= 0.90) tiers.GK.push(r);
+    else if (r.relY >= 0.65) tiers.DEF.push(r);
+    else if (r.relY >= 0.40) tiers.MID.push(r);
+    else tiers.ATT.push(r);
+  }
+  return tiers;
+}
+/* Bench composition over time — produces segments between every change point
+   (each sub time + kickoff + game end). Each segment lists the bench at the
+   START of its interval (constant within the interval since no subs fire mid-segment). */
+function getBenchTimeline(g) {
+  const durationSec = gameTotalSec(g);
+  const points = new Set([0, durationSec]);
+  for (const s of (g.scheduledSubs || [])) {
+    if (typeof s.timeSec === 'number' && s.timeSec > 0 && s.timeSec < durationSec) {
+      points.add(s.timeSec);
+    }
+  }
+  const sorted = [...points].sort((a, b) => a - b);
+  const segs = [];
+  for (let i = 0; i < sorted.length - 1; i++) {
+    const startSec = sorted[i];
+    const endSec = sorted[i + 1];
+    if (endSec <= startSec) continue;
+    segs.push({ startSec, endSec, bench: benchAtSec(g, startSec) });
+  }
+  return segs;
+}
+/* Sorted, deduped list of "interesting times" the scrubber can snap to:
+   kickoff, every sub time, half-time, end of game. Used by ‹ / › step buttons. */
+function gameInterestingTimes(g) {
+  const set = new Set([0, gameTotalSec(g)]);
+  const half = gameHalfTimeSec(g);
+  if (half > 0) set.add(half);
+  for (const s of (g.scheduledSubs || [])) {
+    if (typeof s.timeSec === 'number' && s.timeSec > 0) set.add(s.timeSec);
+  }
+  return [...set].sort((a, b) => a - b);
+}
+
 function renderDetailModal() {
   if (detailGameIdx < 0) return;
   const g = tournament.games[detailGameIdx];
@@ -4449,62 +4572,66 @@ function renderDetailModal() {
   const formation = getFormation(tournament.formationId);
   const durationSec = gameTotalSec(g);
   const halfSec = gameHalfTimeSec(g);
-  const sec = Math.max(0, Math.min(durationSec - 1, detailScrubSec || 0));
+  const sec = Math.max(0, Math.min(durationSec, detailScrubSec || 0));
 
   document.getElementById('detail-title').textContent =
     (g.label || ('Game ' + (detailGameIdx + 1))) + ' · ' + (tournament.teamName || '') + ' vs ' + (g.opponent || 'TBD');
   document.getElementById('detail-sub').textContent =
-    formation.name + ' · ' + gameTotalMin(g) + " min" + (halfSec ? (' · half-time at ' + gameHalfTimeMin(g) + "'") : '');
+    formation.name + ' · ' + gameTotalMin(g) + " min" + (halfSec ? (' · half-time at ' + formatGameTime(halfSec)) : '');
 
   const body = document.getElementById('detail-body');
   let html = '';
 
-  // Pitch with absolute-positioned discs at relX/relY
+  // Pitch — discs colour-coded by playerRatio + highlight propagation
   const field = fieldAtSec(g, sec);
+  const anyHi = anyHighlightActive();
   html += '<div class="detail-pitch-wrap" id="dt-pitch">';
   for (const role of formation.roles) {
     const player = field[role.name] || '';
     const left = (role.relX * 100).toFixed(2) + '%';
     const top = (role.relY * 100).toFixed(2) + '%';
-    html += '<div class="detail-disc" style="left:' + left + ';top:' + top + ';">' +
+    const r = player ? playerRatio(player) : null;
+    const c = ratioColors(r);
+    const hl = isHighlighted(player);
+    const dim = anyHi && player && !hl;
+    const cls = 'detail-disc' + (hl ? ' highlighted' : '') + (dim ? ' dimmed' : '');
+    html += '<div class="' + cls + '" data-disc-player="' + escapeHtml(player) + '" ' +
+              'style="left:' + left + ';top:' + top + ';--disc-bg:' + c.bg + ';--disc-fg:' + c.fg + ';">' +
               '<span class="dd-role">' + escapeHtml(role.name) + '</span>' +
               '<span class="dd-name">' + escapeHtml(player) + '</span>' +
             '</div>';
   }
   html += '</div>';
 
-  // Scrubber
-  const tMin = Math.floor(sec / 60), tSec = Math.floor(sec % 60);
-  const tStr = tMin + ':' + String(tSec).padStart(2, '0');
+  // Scrubber with ‹ / › step buttons. Snap points = kickoff, sub times, half-time, end.
   html += '<div class="detail-scrubber">';
+  html +=   '<button type="button" class="dt-step-btn" id="dt-prev" title="Previous interest point" aria-label="Previous">‹</button>';
   html +=   '<input type="range" id="dt-scrub" min="0" max="' + durationSec + '" step="1" value="' + sec + '">';
-  html +=   '<span class="dt-time">' + tStr + '</span>';
+  html +=   '<button type="button" class="dt-step-btn" id="dt-next" title="Next interest point" aria-label="Next">›</button>';
+  html +=   '<span class="dt-time">' + formatGameTime(sec) + '</span>';
   html += '</div>';
 
-  // Timeline strip — one row per role
+  // Timeline strip — tier-grouped (ATT / MID / DEF / GK / BENCH from top down)
+  // so the order matches the pitch above.
+  const tiers = groupRolesByTier(formation.roles);
+  const tierOrder = ['ATT', 'MID', 'DEF', 'GK'];
   html += '<div class="detail-timeline">';
   html +=   '<h4>Timeline</h4>';
-  for (const role of formation.roles) {
-    const segs = getCellSegments(g, role.name);
-    html += '<div class="dt-track-row"><span class="dt-track-label">' + escapeHtml(role.name) + '</span><div class="dt-track">';
-    for (const seg of segs) {
-      const left = (seg.startSec / durationSec * 100).toFixed(2) + '%';
-      const w = ((seg.endSec - seg.startSec) / durationSec * 100).toFixed(2) + '%';
-      const sub = seg.segIdx > 0 ? ' data-seg="sub"' : '';
-      html += '<div class="dt-seg" data-role="' + escapeHtml(role.name) + '" data-start="' + seg.startSec + '" style="left:' + left + ';width:' + w + ';"' + sub + '>' + escapeHtml(seg.player || '') + '</div>';
+  for (const tierKey of tierOrder) {
+    if (!tiers[tierKey].length) continue;
+    html += '<div class="dt-tier-label">' + tierKey + '</div>';
+    for (const role of tiers[tierKey]) {
+      html += renderDetailTrackRow(g, role.name, durationSec, halfSec, sec);
     }
-    if (halfSec > 0) {
-      const hLeft = (halfSec / durationSec * 100).toFixed(2) + '%';
-      html += '<div class="dt-half" style="left:' + hLeft + ';"></div>';
-    }
-    const pinLeft = (sec / durationSec * 100).toFixed(2) + '%';
-    html += '<div class="dt-pin" style="left:' + pinLeft + ';"></div>';
-    html += '</div></div>';
   }
+  // Bench row at the bottom — answers "who's available off the bench right now?"
+  html += '<div class="dt-tier-label">BENCH</div>';
+  html += renderDetailBenchRow(g, durationSec, halfSec, sec);
   html += '</div>';
 
   body.innerHTML = html;
 
+  // Scrubber input — drag to scrub
   const scrub = document.getElementById('dt-scrub');
   if (scrub) {
     scrub.addEventListener('input', (e) => {
@@ -4512,10 +4639,32 @@ function renderDetailModal() {
       renderDetailModal();
     });
   }
-  // Tap a timeline segment → open the same Add sub / Remove sub sheet that
-  // the planning grid uses. Lets the user create or remove subs without
-  // closing the detail modal.
-  body.querySelectorAll('.dt-seg').forEach(el => {
+  // Prev / next snap buttons
+  const times = gameInterestingTimes(g);
+  document.getElementById('dt-prev').addEventListener('click', () => {
+    let prev = times[0];
+    for (const t of times) { if (t < sec) prev = t; }
+    detailScrubSec = prev;
+    renderDetailModal();
+  });
+  document.getElementById('dt-next').addEventListener('click', () => {
+    let next = times[times.length - 1];
+    for (let i = times.length - 1; i >= 0; i--) { if (times[i] > sec) next = times[i]; }
+    detailScrubSec = next;
+    renderDetailModal();
+  });
+  // Click a disc — highlight that player across all views (totals strip + timeline).
+  body.querySelectorAll('.detail-disc').forEach(disc => {
+    disc.addEventListener('click', () => {
+      const p = disc.dataset.discPlayer;
+      if (!p) return;
+      toggleHighlight(p);
+      renderActiveTab();
+      renderDetailModal();
+    });
+  });
+  // Tap a timeline segment → segment sheet (per-segment actions).
+  body.querySelectorAll('.dt-seg[data-role]').forEach(el => {
     el.addEventListener('click', (e) => {
       e.stopPropagation();
       const role = el.dataset.role;
@@ -4523,26 +4672,77 @@ function renderDetailModal() {
       openSegmentSheet(detailGameIdx, role, startSec, false, '');
     });
   });
-  // Tap an empty area of a track → add a sub at the tapped minute.
+  // Tap empty track area → opens the segment sheet for whichever segment that
+  // minute falls inside (giving you Add sub at minute… with the right range).
   body.querySelectorAll('.dt-track').forEach(track => {
     track.addEventListener('click', (e) => {
-      // Only fire if the user didn't click a segment (segments stop propagation).
       const rect = track.getBoundingClientRect();
       if (rect.width <= 0) return;
       const x = (e.clientX - rect.left) / rect.width;
       const tappedSec = Math.max(0, Math.min(durationSec - 1, Math.round(x * durationSec)));
-      // Find the parent track-row to know which role this is.
       const labelEl = track.parentElement && track.parentElement.querySelector('.dt-track-label');
       if (!labelEl) return;
       const roleName = labelEl.textContent.trim();
-      // Find the segment that contains tappedSec — equivalent to tapping that segment.
-      const role = getFormation(tournament.formationId).roles.find(r => r.name === roleName);
+      if (roleName === 'BENCH') {
+        // Tap the bench row → not directly meaningful; ignore.
+        return;
+      }
+      const role = formation.roles.find(r => r.name === roleName);
       if (!role) return;
       const segs = getCellSegments(g, role.name);
       const seg = segs.find(s => tappedSec >= s.startSec && tappedSec < s.endSec) || segs[0];
       openSegmentSheet(detailGameIdx, role.name, seg.startSec, false, '');
     });
   });
+}
+
+/* Render one role's timeline row (one segment per played interval). */
+function renderDetailTrackRow(g, role, durationSec, halfSec, scrubSec) {
+  const segs = getCellSegments(g, role);
+  const anyHi = anyHighlightActive();
+  let html = '<div class="dt-track-row"><span class="dt-track-label">' + escapeHtml(role) + '</span><div class="dt-track">';
+  for (const seg of segs) {
+    const left = (seg.startSec / durationSec * 100).toFixed(2) + '%';
+    const w = ((seg.endSec - seg.startSec) / durationSec * 100).toFixed(2) + '%';
+    const sub = seg.segIdx > 0 ? ' data-seg="sub"' : '';
+    const segMin = (seg.endSec - seg.startSec) / 60;
+    const tot = seg.player ? Math.round(playerTotalSec(seg.player) / 60) : 0;
+    const hl = isHighlighted(seg.player);
+    const dim = anyHi && seg.player && !hl;
+    const segCls = 'dt-seg' + (hl ? ' dt-seg-hl' : '') + (dim ? ' dt-seg-dim' : '');
+    // Show tournament total minutes inside the segment when there's room.
+    const showTotal = segMin >= 4 && seg.player;
+    const segText = seg.player ? (escapeHtml(seg.player) + (showTotal ? (' · ' + tot + "'") : '')) : '';
+    html += '<div class="' + segCls + '" data-role="' + escapeHtml(role) + '" data-start="' + seg.startSec + '" ' +
+            'style="left:' + left + ';width:' + w + ';"' + sub + '>' + segText + '</div>';
+  }
+  if (halfSec > 0) {
+    const hLeft = (halfSec / durationSec * 100).toFixed(2) + '%';
+    html += '<div class="dt-half" style="left:' + hLeft + ';"></div>';
+  }
+  const pinLeft = (scrubSec / durationSec * 100).toFixed(2) + '%';
+  html += '<div class="dt-pin" style="left:' + pinLeft + ';"></div>';
+  html += '</div></div>';
+  return html;
+}
+function renderDetailBenchRow(g, durationSec, halfSec, scrubSec) {
+  const segs = getBenchTimeline(g);
+  let html = '<div class="dt-track-row"><span class="dt-track-label">BENCH</span><div class="dt-track dt-track-bench">';
+  for (const seg of segs) {
+    const left = (seg.startSec / durationSec * 100).toFixed(2) + '%';
+    const w = ((seg.endSec - seg.startSec) / durationSec * 100).toFixed(2) + '%';
+    const text = seg.bench.length === 0 ? '(none)' : seg.bench.join(', ');
+    const title = 'Bench at ' + formatGameTime(seg.startSec) + ': ' + (seg.bench.join(', ') || 'empty');
+    html += '<div class="dt-seg dt-seg-bench" style="left:' + left + ';width:' + w + ';" title="' + escapeHtml(title) + '">' + escapeHtml(text) + '</div>';
+  }
+  if (halfSec > 0) {
+    const hLeft = (halfSec / durationSec * 100).toFixed(2) + '%';
+    html += '<div class="dt-half" style="left:' + hLeft + ';"></div>';
+  }
+  const pinLeft = (scrubSec / durationSec * 100).toFixed(2) + '%';
+  html += '<div class="dt-pin" style="left:' + pinLeft + ';"></div>';
+  html += '</div></div>';
+  return html;
 }
 document.getElementById('detail-close').addEventListener('click', closeDetailModal);
 
