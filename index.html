@@ -468,18 +468,36 @@ button { border: none; background: none; color: inherit; cursor: pointer; }
   border: 1.5px solid #ccc;
   transition: transform 0.1s, border-color 0.15s;
 }
-.slot[data-half="h2"], .slot[data-seg="sub"] {
-  background: #fff3cd;
-  border-color: #ffc107;
-  color: #333;
+/* Segment colours by segment index. Progressively warmer as you move
+   through subs so 0/1/2/3+ subs in the same row are visually distinct. */
+.slot[data-segidx="1"] { background: #fff3cd; border-color: #f6c947; color: #4a3c00; }
+.slot[data-segidx="2"] { background: #ffe082; border-color: #f1a93a; color: #4a3000; }
+.slot[data-segidx="3"] { background: #ffcc80; border-color: #ed8a2e; color: #4a2400; }
+.slot[data-segidx="4"] { background: #ffb074; border-color: #d96b1f; color: #4a1d00; }
+.slot[data-segidx="5"], .slot[data-segidx="6"] {
+  background: #ff9966; border-color: #b94d12; color: #fff;
 }
-.slot[data-seg="full"] {
+/* Single-segment row (no subs at this position) — show as full-game green. */
+.chip-row.full-game .slot {
   background: #d4edda;
   border-color: #28a745;
   color: #155724;
   font-weight: 600;
 }
-/* Legacy data-half rules removed; full-game styling now lives on the chip-row itself. */
+
+/* Minute-start badge on non-first segments. Sits top-left so it doesn't
+   collide with the half-time divider line that runs through the chip-row. */
+.chip-min-tag {
+  position: absolute;
+  top: 1px; left: 3px;
+  font-size: 8.5px; font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.2px;
+  color: rgba(0,0,0,0.6);
+  pointer-events: none;
+  line-height: 1;
+}
+.chip-name { display: inline; }
 
 .slot:active { cursor: grabbing; transform: scale(0.96); }
 .slot.drag-over { border-color: #2d5; background: #c8e6c9; }
@@ -2569,10 +2587,19 @@ function chipHtml(gameIdx, role, startSec, segIdx, segMin, player, extraClass) {
     const pct = r !== null ? Math.min(100, Math.max(0, r * 80)) : 0;
     barHtml = '<div class="chip-min-bar"><div class="chip-min-fill" style="--chip-hue:' + hue + ';--chip-ratio:' + pct + '%"></div></div>';
   }
+  // Minute badge on non-first segments — makes sub timing legible at a glance
+  // ("Niilo · 12'" tells you the sub came on at minute 12 without measuring chip width).
+  let minuteBadge = '';
+  if (role !== '__BENCH__' && segIdx > 0 && startSec > 0) {
+    const startMin = Math.round(startSec / 60 * 2) / 2;
+    const startMinStr = (startMin % 1 === 0 ? String(startMin) : startMin.toFixed(1));
+    minuteBadge = '<span class="chip-min-tag">' + startMinStr + "'" + '</span>';
+  }
   const flex = Math.max(1, Math.round(segMin || 0));
   const benchAttr = role === '__BENCH__' ? ' data-bench-player="' + escapeHtml(player || '') + '"' : '';
   return '<div class="' + cls + '" data-game="' + gameIdx + '" data-role="' + escapeHtml(role) + '" data-start="' + startSec + '" data-segidx="' + segIdx + '"' + benchAttr + ' style="--seg-flex:' + flex + ';" draggable="true">' +
-    '<span>' + escapeHtml(player || '') + '</span>' + barHtml + '</div>';
+    minuteBadge +
+    '<span class="chip-name">' + escapeHtml(player || '') + '</span>' + barHtml + '</div>';
 }
 
 function renderGameDetail() {
@@ -3391,7 +3418,10 @@ function openSegmentSheet(gIdx, role, startSec, isBench, benchPlayer) {
     if (startSec > 0) {
       const sub = (g.scheduledSubs || []).find(s => s.role === role && s.timeSec === startSec);
       if (sub) {
-        actions.push({ label: 'Remove this sub', variant: 'danger', onClick: () => { removeSub(gIdx, sub.id); if (detailGameIdx >= 0) renderDetailModal(); } });
+        const subMin = Math.round(sub.timeSec / 60 * 2) / 2;
+        const subMinStr = subMin % 1 === 0 ? String(subMin) : subMin.toFixed(1);
+        const subLabel = 'Remove sub at ' + subMinStr + "' (" + (sub.outPlayer || '?') + ' → ' + (sub.inPlayer || '?') + ')';
+        actions.push({ label: subLabel, variant: 'danger', onClick: () => { removeSub(gIdx, sub.id); if (detailGameIdx >= 0) renderDetailModal(); } });
       }
     }
   }
