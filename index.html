@@ -1091,7 +1091,15 @@ input[type="checkbox"] { accent-color: var(--success); cursor: pointer; }
   display: inline-flex; align-items: center; justify-content: center;
   font-size: 18px; font-weight: 800;
 }
-.detail-body { padding: 14px; }
+.detail-body {
+  padding: 14px;
+  /* Cap reading width — full-screen wide is hard to scan, especially the
+     timeline rows where short segments become tiny dots. */
+  max-width: 720px;
+  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
+}
 .detail-pitch-wrap {
   position: relative;
   width: 100%;
@@ -1148,18 +1156,35 @@ input[type="checkbox"] { accent-color: var(--success); cursor: pointer; }
   font-size: 11px; font-weight: 700;
 }
 .detail-scrubber {
-  display: flex; align-items: center; gap: 8px;
   padding: 10px 12px;
   background: rgba(15,23,42,0.55);
   border: 1px solid var(--border-soft);
   border-radius: var(--r-md);
   margin-bottom: 12px;
 }
-.detail-scrubber input[type="range"] { flex: 1; min-width: 0; }
-.detail-scrubber .dt-time {
+/* Toolbar row: prev / time readout / next, centered. */
+.dscrub-toolbar {
+  display: flex; align-items: center; justify-content: center; gap: 12px;
+  margin-bottom: 8px;
+}
+.dscrub-toolbar .dt-time {
   font-variant-numeric: tabular-nums;
   font-weight: 700; color: var(--accent);
-  min-width: 56px; text-align: right;
+  min-width: 64px; text-align: center;
+  font-size: 14px;
+}
+/* Slider rail: shares the same [label-area + track-area] flex grid as
+   the timeline rows below, so the slider thumb path lines up with each
+   role row's segment edges. The label slot is just an empty spacer here. */
+.dscrub-rail {
+  display: flex; align-items: center; gap: 8px;
+}
+.dscrub-rail .dscrub-spacer {
+  flex: 0 0 48px;
+}
+.dscrub-rail .dscrub-slider {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 /* Prev / next snap buttons. Step through kickoff → sub times → halftime → end. */
 .dt-step-btn {
@@ -1193,12 +1218,16 @@ input[type="checkbox"] { accent-color: var(--success); cursor: pointer; }
   font-size: 11px;
 }
 .dt-track-row .dt-track-label {
-  flex: 0 0 auto;
-  min-width: 38px;
-  padding-right: 6px;
+  /* Locked width so every row aligns and the scrubber slider above can
+     match this column exactly. */
+  flex: 0 0 48px;
   font-weight: 700; color: var(--text-dim);
   text-transform: uppercase; letter-spacing: 0.4px;
   font-variant-numeric: tabular-nums;
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .dt-track {
   position: relative; flex: 1; height: 22px;
@@ -4645,12 +4674,19 @@ function renderDetailModal() {
   }
   html += '</div>';
 
-  // Scrubber with ‹ / › step buttons. Snap points = kickoff, sub times, half-time, end.
+  // Scrubber: toolbar (prev / time / next) on top, slider below using the
+  // same [label-spacer + flex 1] grid as the timeline rows so the slider
+  // thumb path aligns pixel-for-pixel with each role row's track underneath.
   html += '<div class="detail-scrubber">';
-  html +=   '<button type="button" class="dt-step-btn" id="dt-prev" title="Previous interest point" aria-label="Previous">‹</button>';
-  html +=   '<input type="range" id="dt-scrub" min="0" max="' + durationSec + '" step="1" value="' + sec + '">';
-  html +=   '<button type="button" class="dt-step-btn" id="dt-next" title="Next interest point" aria-label="Next">›</button>';
-  html +=   '<span class="dt-time">' + formatGameTime(sec) + '</span>';
+  html +=   '<div class="dscrub-toolbar">';
+  html +=     '<button type="button" class="dt-step-btn" id="dt-prev" title="Previous interest point" aria-label="Previous">‹</button>';
+  html +=     '<span class="dt-time">' + formatGameTime(sec) + '</span>';
+  html +=     '<button type="button" class="dt-step-btn" id="dt-next" title="Next interest point" aria-label="Next">›</button>';
+  html +=   '</div>';
+  html +=   '<div class="dscrub-rail">';
+  html +=     '<span class="dscrub-spacer" aria-hidden="true"></span>';
+  html +=     '<input type="range" class="dscrub-slider" id="dt-scrub" min="0" max="' + durationSec + '" step="1" value="' + sec + '">';
+  html +=   '</div>';
   html += '</div>';
 
   // Timeline strip — tier-grouped (ATT / MID / DEF / GK / BENCH from top down)
