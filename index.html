@@ -585,6 +585,15 @@ button { border: none; background: none; color: inherit; cursor: pointer; }
   color: #333;
 }
 .bench-row .chip-min-bar { background: rgba(0,0,0,0.12); }
+.bench-row-label {
+  font-size: 9px; font-weight: 700;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin: 4px 0 4px;
+  font-family: 'Rajdhani', system-ui, sans-serif;
+}
+.bench-row-label:first-child { margin-top: 0; }
 
 /* Mini minute bar (per-game strip) */
 .game-min-strip {
@@ -1000,6 +1009,8 @@ input[type="checkbox"] { accent-color: var(--success); cursor: pointer; }
 }
 .detail-disc {
   position: absolute;
+  /* Centre the disc on its (relX, relY) coordinate so geometry matches
+     MatchOps-Local's pitch where players are anchored at their centre. */
   transform: translate(-50%, -50%);
   background: rgba(255,255,255,0.96);
   color: #1e293b;
@@ -1053,9 +1064,12 @@ input[type="checkbox"] { accent-color: var(--success); cursor: pointer; }
   font-size: 11px;
 }
 .dt-track-row .dt-track-label {
-  flex: 0 0 46px;
+  flex: 0 0 auto;
+  min-width: 38px;
+  padding-right: 6px;
   font-weight: 700; color: var(--text-dim);
   text-transform: uppercase; letter-spacing: 0.4px;
+  font-variant-numeric: tabular-nums;
 }
 .dt-track {
   position: relative; flex: 1; height: 22px;
@@ -1682,7 +1696,7 @@ function buildSeedTournament() {
     for (const role of V2_POSITIONS) {
       if (seedH1[i][role] !== seedH2[i][role]) {
         subs.push({
-          id: 'sub_' + Math.random().toString(36).slice(2, 10),
+          id: newSubId(),
           timeSec: 750, role,
           outPlayer: seedH1[i][role],
           inPlayer: seedH2[i][role],
@@ -1774,7 +1788,7 @@ function migrateV2ToV3(v2) {
       const b = g && g.h2 ? g.h2[role] : '';
       if (a && b && a !== b) {
         scheduledSubs.push({
-          id: 'sub_' + Math.random().toString(36).slice(2, 10),
+          id: newSubId(),
           timeSec: 750, role,
           outPlayer: a, inPlayer: b,
         });
@@ -1807,6 +1821,9 @@ const loaded = loadAll();
 let tournament = loaded.tournament;
 let included = loaded.included;
 let currentVersionName = loaded.currentVersionName;
+// Normalise outPlayer fields on whatever shape we just loaded; repairs any
+// staleness that pre-dates the auto-repair on saveAll.
+repairOutPlayers(tournament);
 let activeGame = 0;          // which game the ribbon is focused on
 let activeTab = 'games';     // 'games' | 'minutes' | 'plans' | 'settings'
 const highlightedPlayers = new Set();
@@ -1922,6 +1939,8 @@ function loadAll() {
   return { tournament: buildSeedTournament(), included: defaultIncluded(DEFAULT_INCLUDED_LEN), currentVersionName: null };
 }
 function saveAll() {
+  // Keep sub.outPlayer fields in lockstep with the actual segment graph.
+  repairOutPlayers(tournament);
   const snapshot = { tournament, included, currentVersionName, savedAt: new Date().toISOString() };
   try { localStorage.setItem(STORAGE_KEY_V3, JSON.stringify(snapshot)); } catch (_) {}
   showSaved(); updateVersionBadge();
@@ -2289,6 +2308,79 @@ function benchAtSec(game, sec) {
   const onField = new Set(Object.values(fieldAtSec(game, sec)).filter(Boolean));
   return PLAYERS.filter(p => !onField.has(p));
 }
+/* Generate a fresh substitution id. Uses crypto.randomUUID when available
+   (every modern browser); falls back to a timestamp + random combo. */
+function newSubId() {
+  try {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      return 's_' + crypto.randomUUID();
+    }
+  } catch (_) {}
+  return 's_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 9);
+}
+/* Walk every sub in every game and rewrite each sub.outPlayer to the player
+   on the field immediately before the sub fires. Idempotent; cheap enough to
+   run unconditionally before persistence. Eliminates the staleness that used
+   to follow swap / setSegmentPlayer / removeSub mutations. */
+function repairOutPlayers(t) {
+  if (!t || !Array.isArray(t.games)) return;
+  for (const g of t.games) {
+    if (!Array.isArray(g.scheduledSubs)) continue;
+    const byRole = {};
+    for (const s of g.scheduledSubs) {
+      if (!byRole[s.role]) byRole[s.role] = [];
+      byRole[s.role].push(s);
+    }
+    for (const role of Object.keys(byRole)) {
+      const subs = byRole[role].slice().sort((a, b) => a.timeSec - b.timeSec);
+      let prev = (g.startingXI && g.startingXI[role]) || '';
+      for (const s of subs) {
+        s.outPlayer = prev;
+        prev = s.inPlayer || '';
+      }
+    }
+  }
+}
+/* True iff `player` is on the field at any role *other than* `role` at time
+   `atSec`. Used to refuse a sub that would put the same player at two roles
+   simultaneously. */
+function wouldCauseDoublePosition(game, role, atSec, player) {
+  if (!player) return false;
+  const formation = getFormation(tournament.formationId);
+  if (!formation) return false;
+  for (const r of formation.roles) {
+    if (r.name === role) continue;
+    if (playerAtRoleSec(game, r.name, atSec) === player) return true;
+  }
+  return false;
+}
+/* Scan the whole tournament for moments where the same player is at two roles.
+   Returns [{ gameIdx, atSec, player, roles[] }]. The state banner uses this. */
+function scanDoublePositions(t) {
+  const issues = [];
+  if (!t || !Array.isArray(t.games)) return issues;
+  const formation = getFormation(t.formationId);
+  if (!formation) return issues;
+  for (let gi = 0; gi < t.games.length; gi++) {
+    const g = t.games[gi];
+    // Sample at every change point: kickoff + every sub time across all roles.
+    const checkpoints = new Set([0]);
+    for (const s of (g.scheduledSubs || [])) checkpoints.add(s.timeSec);
+    for (const sec of checkpoints) {
+      const seenAt = {};
+      for (const r of formation.roles) {
+        const p = playerAtRoleSec(g, r.name, sec);
+        if (!p) continue;
+        if (seenAt[p]) {
+          issues.push({ gameIdx: gi, atSec: sec, player: p, roles: [seenAt[p], r.name] });
+        } else {
+          seenAt[p] = r.name;
+        }
+      }
+    }
+  }
+  return issues;
+}
 function playersOnFieldThisGame(game) {
   const set = new Set();
   for (const role of Object.keys(game.startingXI)) {
@@ -2470,12 +2562,23 @@ function _rerenderAfterMutate() {
   if (detailGameIdx >= 0 && document.getElementById('detail-overlay').classList.contains('open')) {
     renderDetailModal();
   }
+  // Surface any new double-position issues introduced by the edit.
+  if (typeof refreshStateBanner === 'function') refreshStateBanner();
 }
 function addSubAtMinute(gameIdx, role, atSec, inPlayer) {
   const g = tournament.games[gameIdx];
   if (!g) return;
   const durationSec = gameTotalSec(g);
   atSec = Math.max(1, Math.min(durationSec - 1, Math.round(atSec)));
+  // Refuse if the chosen player is already on the field at another role at
+  // exactly this moment — they can't be in two places at once. Rare path
+  // (the bench-picker only shows actually-on-bench players), but the same
+  // function is also called from "Replace incoming player" / "Move sub" so
+  // the guard belongs here.
+  if (inPlayer && wouldCauseDoublePosition(g, role, atSec, inPlayer)) {
+    alert(inPlayer + ' is already on the field at this moment in another role. Pick a different player or sub them off first.');
+    return;
+  }
   // Find existing player at that time at this role (becomes outPlayer).
   // Compute outPlayer from a slightly-earlier instant so an in-place update
   // (where the sub at this role+time already exists) reads the segment
@@ -2489,7 +2592,7 @@ function addSubAtMinute(gameIdx, role, atSec, inPlayer) {
   } else {
     g.scheduledSubs = g.scheduledSubs || [];
     g.scheduledSubs.push({
-      id: 's_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+      id: newSubId(),
       role, timeSec: atSec,
       outPlayer, inPlayer: inPlayer || ''
     });
@@ -2661,22 +2764,38 @@ function renderGameDetail() {
   }
   html +=   '</div>';
 
-  // Bench drawer (kickoff bench = roster − startingXI)
-  const startingPlayers = new Set(Object.values(g.startingXI).filter(Boolean));
-  const benchPlayersAtKickoff = PLAYERS.filter(p => !startingPlayers.has(p));
+  // Bench drawer. For 2-half games, show two rows: bench at kickoff and
+  // bench at the start of the second half (post-half-time).
+  const benchPlayersAtKickoff = benchAtSec(g, 0);
+  const showHalfTimeBench = halfSec > 0;
+  const benchPlayersAtHT = showHalfTimeBench ? benchAtSec(g, halfSec) : [];
+  const benchCountLabel = showHalfTimeBench
+    ? (benchPlayersAtKickoff.length + ' / ' + benchPlayersAtHT.length)
+    : String(benchPlayersAtKickoff.length);
   html +=   '<button class="bench-drawer-toggle" id="bench-toggle" aria-expanded="' + benchOpen + '">' +
-              '<span>Bench at kickoff (' + benchPlayersAtKickoff.length + ')</span><span class="chev">▼</span>' +
+              '<span>Bench (' + benchCountLabel + ')</span><span class="chev">▼</span>' +
             '</button>';
   html +=   '<div class="bench-section' + (benchOpen ? ' open' : '') + '" id="bench-section">';
+  // Kickoff bench
+  if (showHalfTimeBench) html += '<div class="bench-row-label">Kickoff</div>';
   html +=     '<div class="bench-row"><div class="chip-row">' +
                 benchPlayersAtKickoff.map((pl) => {
                   const extra = benchedNeverPlay.has(pl) ? 'benched-both' : '';
-                  // segIdx=0 for every bench chip so they don't pick up the
-                  // [data-segidx>=1] "later-segment" yellow style; bench has
-                  // its own colour rule via .bench-row .slot.
                   return chipHtml(gIdx, '__BENCH__', 0, 0, 1, pl, extra);
                 }).join('') +
               '</div></div>';
+  // Post-half-time bench (only when game has 2 halves)
+  if (showHalfTimeBench) {
+    const halfMinLabel = Math.round(halfSec / 60 * 2) / 2;
+    const halfMinStr = halfMinLabel % 1 === 0 ? String(halfMinLabel) : halfMinLabel.toFixed(1);
+    html += '<div class="bench-row-label">After ' + halfMinStr + "'</div>";
+    html +=   '<div class="bench-row"><div class="chip-row">' +
+                  benchPlayersAtHT.map((pl) => {
+                    const extra = benchedNeverPlay.has(pl) ? 'benched-both' : '';
+                    return chipHtml(gIdx, '__BENCH__', 0, 0, 1, pl, extra);
+                  }).join('') +
+              '</div></div>';
+  }
   html +=   '</div>';
 
   // Tournament-totals strip (replaces the old per-game strip).
@@ -3420,8 +3539,16 @@ function openSegmentSheet(gIdx, role, startSec, isBench, benchPlayer) {
       if (sub) {
         const subMin = Math.round(sub.timeSec / 60 * 2) / 2;
         const subMinStr = subMin % 1 === 0 ? String(subMin) : subMin.toFixed(1);
+        actions.push({
+          label: 'Move sub to minute…',
+          onClick: () => openMoveSubSheet(gIdx, role, sub)
+        });
+        actions.push({
+          label: 'Replace incoming player…',
+          onClick: () => openReplacePlayerSheet(gIdx, role, sub)
+        });
         const subLabel = 'Remove sub at ' + subMinStr + "' (" + (sub.outPlayer || '?') + ' → ' + (sub.inPlayer || '?') + ')';
-        actions.push({ label: subLabel, variant: 'danger', onClick: () => { removeSub(gIdx, sub.id); if (detailGameIdx >= 0) renderDetailModal(); } });
+        actions.push({ label: subLabel, variant: 'danger', onClick: () => { removeSub(gIdx, sub.id); } });
       }
     }
   }
@@ -3439,6 +3566,123 @@ function openChipSheet(slot) {
   const benchPlayer = isBench ? (slot.dataset.benchPlayer || '') : '';
   openSegmentSheet(gIdx, role, startSec, isBench, benchPlayer);
 }
+/* Move an existing sub to a different minute. The new time must sit strictly
+   between the previous and next sub at the same role (so the sub list remains
+   ordered without renaming "first half" or "second half" semantics). */
+function openMoveSubSheet(gameIdx, role, sub) {
+  const g = tournament.games[gameIdx];
+  if (!g) return;
+  const durationMin = gameTotalMin(g);
+  const otherSubs = (g.scheduledSubs || []).filter(s => s.role === role && s.id !== sub.id);
+  const earlier = otherSubs.filter(s => s.timeSec < sub.timeSec).sort((a, b) => b.timeSec - a.timeSec);
+  const later = otherSubs.filter(s => s.timeSec > sub.timeSec).sort((a, b) => a.timeSec - b.timeSec);
+  const prevSec = earlier.length > 0 ? earlier[0].timeSec : 0;
+  const nextSec = later.length > 0 ? later[0].timeSec : durationMin * 60;
+  const minLow = Math.ceil((prevSec / 60 + 0.5) * 2) / 2;
+  const minHigh = Math.floor((nextSec / 60 - 0.5) * 2) / 2;
+  const currentMin = Math.round(sub.timeSec / 60 * 2) / 2;
+
+  const titleText = 'Move sub at ' + role;
+  const subText = (sub.outPlayer || '?') + ' → ' + (sub.inPlayer || '?');
+
+  const renderForm = (host) => {
+    host.innerHTML = '';
+    const minRow = document.createElement('div');
+    minRow.className = 'sheet-min-row';
+    const labelEl = document.createElement('label');
+    labelEl.htmlFor = 'move-min';
+    labelEl.textContent = 'Minute';
+    const minInput = document.createElement('input');
+    minInput.type = 'number';
+    minInput.id = 'move-min';
+    minInput.min = String(minLow);
+    minInput.max = String(minHigh);
+    minInput.step = '0.5';
+    minInput.value = String(currentMin);
+    minRow.appendChild(labelEl);
+    minRow.appendChild(minInput);
+    host.appendChild(minRow);
+
+    const hint = document.createElement('div');
+    hint.className = 'sheet-section-label';
+    hint.textContent = "Allowed range: " + minLow + "'–" + minHigh + "'";
+    host.appendChild(hint);
+  };
+
+  openSheet(titleText, subText, [
+    { label: 'Cancel', onClick: () => {} },
+    {
+      label: 'Move', variant: 'primary',
+      onClick: () => {
+        const inputEl = document.getElementById('move-min');
+        if (!inputEl) return;
+        const m = parseFloat(inputEl.value);
+        if (!isFinite(m) || m < minLow || m > minHigh) {
+          alert("Minute must be between " + minLow + " and " + minHigh + ".");
+          return;
+        }
+        sub.timeSec = Math.round(m * 60);
+        if (Array.isArray(g.scheduledSubs)) {
+          g.scheduledSubs.sort((a, b) => a.role.localeCompare(b.role) || a.timeSec - b.timeSec);
+        }
+        saveAll(); pushHistory(); _rerenderAfterMutate();
+      }
+    }
+  ], {
+    onBodyMount: (host) => renderForm(host)
+  });
+}
+
+/* Swap the inPlayer of an existing sub with a different bench player at that
+   same minute (no time change). */
+function openReplacePlayerSheet(gameIdx, role, sub) {
+  const g = tournament.games[gameIdx];
+  if (!g) return;
+  const benchAtTime = benchAtSec(g, sub.timeSec);
+  const candidates = benchAtTime.filter(p => p !== sub.inPlayer);
+  const subMin = Math.round(sub.timeSec / 60 * 2) / 2;
+  const subMinStr = subMin % 1 === 0 ? String(subMin) : subMin.toFixed(1);
+
+  const titleText = 'Replace ' + (sub.inPlayer || '?');
+  const subText = "At " + subMinStr + "' (position " + role + ")";
+
+  const renderForm = (host) => {
+    host.innerHTML = '';
+    const sectionLabel = document.createElement('div');
+    sectionLabel.className = 'sheet-section-label';
+    sectionLabel.textContent = candidates.length === 0
+      ? 'No other bench players available at this minute.'
+      : 'Tap a player to swap in instead:';
+    host.appendChild(sectionLabel);
+
+    const grid = document.createElement('div');
+    grid.className = 'sheet-bench-grid';
+    candidates.forEach(p => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'btn sheet-bench-chip';
+      btn.textContent = p;
+      btn.addEventListener('click', () => {
+        if (wouldCauseDoublePosition(g, role, sub.timeSec, p)) {
+          alert(p + ' is already on the field elsewhere at that moment.');
+          return;
+        }
+        sub.inPlayer = p;
+        saveAll(); pushHistory(); _rerenderAfterMutate();
+        closeSheet();
+      });
+      grid.appendChild(btn);
+    });
+    host.appendChild(grid);
+  };
+
+  openSheet(titleText, subText, [
+    { label: 'Cancel', onClick: () => {} }
+  ], {
+    onBodyMount: (host) => renderForm(host)
+  });
+}
+
 /* Inline form: pick minute + bench player without nested prompts. */
 function openAddSubSheet(gameIdx, role, seg) {
   const g = tournament.games[gameIdx];
@@ -3694,7 +3938,7 @@ function renderSettings() {
       clone.time = 'TBD';
       // Fresh sub IDs so the clone's history is independent.
       if (Array.isArray(clone.scheduledSubs)) {
-        clone.scheduledSubs.forEach(s => { s.id = 's_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7); });
+        clone.scheduledSubs.forEach(s => { s.id = newSubId(); });
       }
       tournament.games.splice(idx + 1, 0, clone);
       included.splice(idx + 1, 0, true);
@@ -3787,7 +4031,7 @@ function suggestFairShareLineup() {
         const role = formation.roles.find(r => g.startingXI[r.name] === off);
         if (!role) continue;
         g.scheduledSubs.push({
-          id: 's_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7) + '_' + k,
+          id: newSubId(),
           role: role.name, timeSec: halfSec,
           outPlayer: off, inPlayer: on,
         });
@@ -3850,7 +4094,7 @@ function renderDetailModal() {
   const tMin = Math.floor(sec / 60), tSec = Math.floor(sec % 60);
   const tStr = tMin + ':' + String(tSec).padStart(2, '0');
   html += '<div class="detail-scrubber">';
-  html +=   '<input type="range" id="dt-scrub" min="0" max="' + (durationSec - 1) + '" step="1" value="' + sec + '">';
+  html +=   '<input type="range" id="dt-scrub" min="0" max="' + durationSec + '" step="1" value="' + sec + '">';
   html +=   '<span class="dt-time">' + tStr + '</span>';
   html += '</div>';
 
@@ -4066,6 +4310,21 @@ function refreshStateBanner() {
       'Plan references unknown players: ' + unknowns.join(', ') + '. Open Plans → Roster to resolve.',
       'Open Roster',
       () => setTab('plans')
+    );
+    return;
+  }
+  // Same-player-at-two-roles check. Can happen via tap-swap, formation switch,
+  // or by editing a saved plan that pre-dates the addSubAtMinute guard.
+  const dups = scanDoublePositions(tournament);
+  if (dups.length) {
+    const first = dups[0];
+    const game = tournament.games[first.gameIdx];
+    const min = Math.round(first.atSec / 60 * 2) / 2;
+    const minStr = min % 1 === 0 ? String(min) : min.toFixed(1);
+    showStateBanner(
+      first.player + ' is at two positions (' + first.roles.join(' & ') + ') at ' + minStr + "' in " + (game.label || ('Game ' + (first.gameIdx + 1))) + (dups.length > 1 ? ' (+' + (dups.length - 1) + ' more)' : ''),
+      'Open game',
+      () => { activeGame = first.gameIdx; setTab('games'); }
     );
     return;
   }
