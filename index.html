@@ -1814,7 +1814,10 @@ function redo() { if (historyIndex < history.length - 1) { historyIndex++; apply
 pushHistory(); // initial state
 
 /* ══════════════════ Persistence ══════════════════ */
-let loadWarning = null;
+// `var` so the binding is hoisted above the `const loaded = loadAll();` call
+// later in this script — loadAll's catch branch writes to this on parse/
+// validation failure, and TDZ on `let` would mask the real error.
+var loadWarning = null;
 function _normalizeIncluded(arr, n) {
   if (!Array.isArray(arr)) return defaultIncluded(n);
   const out = arr.slice(0, n).map(Boolean);
@@ -2127,7 +2130,9 @@ function escapeHtml(s) {
 let VALID_PLAYERS_SET = new Set(PLAYERS);
 function rebuildValidPlayersSet() { VALID_PLAYERS_SET = new Set(PLAYERS); }
 // Both names refer to the same v3 structural validator.
-const hasValidTournament = (t) => hasValidShape(t);
+// Function declaration so it's hoisted — loadAll() at startup runs before this
+// line is reached, but needs to call the validator.
+function hasValidTournament(t) { return hasValidShape(t); }
 function hasValidShape(t) {
   if (!t || typeof t !== 'object') return false;
   if (!Array.isArray(t.games) || t.games.length === 0) return false;
