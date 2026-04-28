@@ -1136,8 +1136,12 @@ input[type="checkbox"] { accent-color: var(--success); cursor: pointer; }
   width: 100%;
   height: 100%;
   pointer-events: none;
-  z-index: 1;
+  /* No z-index so the discs (which come after this SVG in the DOM and
+     are also position:absolute) render on top of the field markings.
+     The earlier z-index:1 was lifting the lines above the discs and
+     making the discs look transparent where lines crossed them. */
 }
+.detail-disc { z-index: 2; }
 .dt-pitch-bg .ln {
   fill: none;
   stroke: rgba(255,255,255,0.55);
@@ -4780,7 +4784,7 @@ function renderDetailModal() {
     const left = (role.relX * 100).toFixed(2) + '%';
     const top = (role.relY * 100).toFixed(2) + '%';
     const r = player ? playerRatio(player) : null;
-    const c = discColors(r);
+    const c = ratioColors(r);
     const hl = isHighlighted(player);
     const dim = anyHi && player && !hl;
     const cls = 'detail-disc' + (hl ? ' highlighted' : '') + (dim ? ' dimmed' : '');
