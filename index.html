@@ -2821,6 +2821,16 @@ function ratioColors(r) {
   if (h < 85)     return { bg: 'hsl(' + h + ', 78%, 60%)', fg: '#1a1a1a' };  // yellow — dark text
   return              { bg: 'hsl(' + h + ', 55%, 40%)', fg: '#ecfdf5' };   // green — cream text
 }
+/* Field-disc palette. Same semantic meaning as ratioColors (under / at /
+   over fair share), but skips green entirely so the disc never blends
+   into the grass behind it. Used by the detail-view pitch only — the
+   planning-grid chips and Minutes-tab strip stay on the original palette. */
+function discColors(r) {
+  if (r === null) return { bg: '#475569', fg: '#e2e8f0' };
+  if (r < 0.85)  return { bg: '#dc2626', fg: '#fff' };       // red-600 — under-played
+  if (r < 1.15)  return { bg: '#f59e0b', fg: '#1a1a1a' };    // amber-500 — at fair share
+  return                { bg: '#2563eb', fg: '#fff' };       // blue-600 — over fair share
+}
 function formatMin(sec) { const m = Math.floor(sec/60), s = sec%60; return m + ':' + s.toString().padStart(2,'0'); }
 function benchedBothHalves(gi) {
   // Renamed semantics for the new model: players who never appear on the field this game.
@@ -4770,7 +4780,7 @@ function renderDetailModal() {
     const left = (role.relX * 100).toFixed(2) + '%';
     const top = (role.relY * 100).toFixed(2) + '%';
     const r = player ? playerRatio(player) : null;
-    const c = ratioColors(r);
+    const c = discColors(r);
     const hl = isHighlighted(player);
     const dim = anyHi && player && !hl;
     const cls = 'detail-disc' + (hl ? ' highlighted' : '') + (dim ? ' dimmed' : '');
