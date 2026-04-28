@@ -4569,6 +4569,21 @@ function unlockBodyScroll() {
   }
 }
 
+/* Defer renderDetailModal to the next animation frame so a scrub or click
+   event finishes propagating before the modal's DOM is replaced. Without
+   this, rapid scrub/click sequences (or a click that arrives during a
+   re-render triggered by a sub move) can be lost because the event-target
+   element is removed mid-flight. */
+let _detailRenderScheduled = false;
+function scheduleDetailRender() {
+  if (_detailRenderScheduled) return;
+  _detailRenderScheduled = true;
+  requestAnimationFrame(() => {
+    _detailRenderScheduled = false;
+    if (detailGameIdx >= 0) renderDetailModal();
+  });
+}
+
 function openDetailModal(gIdx) {
   detailGameIdx = gIdx;
   detailScrubSec = 0;
@@ -4709,50 +4724,48 @@ function renderDetailModal() {
 
   body.innerHTML = html;
 
-  // Scrubber: native input event handles drag. Plus a manual click handler
-  // on the rail so a tap anywhere along the slider line — including past
-  // the current thumb position — reliably jumps to that minute. Native
-  // <input type="range"> only seeks on clicks that hit the thin track strip
-  // in the middle, and some browsers (notably mobile Safari) skip clicks
-  // past the current value entirely.
+  // Scrubber: native input handles drag, manual rail-click handles taps
+  // anywhere on the slider line (Webkit/Safari won't seek past current value
+  // on a single tap). DOM refs are looked up fresh inside seekTo each call
+  // so a re-render between events can't leave us holding a stale element.
   const scrub = document.getElementById('dt-scrub');
   if (scrub) {
     scrub.addEventListener('input', (e) => {
       detailScrubSec = parseInt(e.target.value, 10) || 0;
-      renderDetailModal();
+      scheduleDetailRender();
     });
   }
   const rail = body.querySelector('.dscrub-rail');
-  if (rail && scrub) {
+  if (rail) {
     const seekTo = (clientX) => {
-      const rect = scrub.getBoundingClientRect();
+      const sl = document.getElementById('dt-scrub');
+      if (!sl) return;
+      const rect = sl.getBoundingClientRect();
       if (rect.width <= 0) return;
+      const max = parseInt(sl.max, 10) || 0;
+      if (max <= 0) return;
       const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-      const newVal = Math.round(ratio * durationSec);
-      if (newVal === parseInt(scrub.value, 10)) return;
-      detailScrubSec = newVal;
-      renderDetailModal();
+      detailScrubSec = Math.round(ratio * max);
+      scheduleDetailRender();
     };
     rail.addEventListener('click', (e) => {
-      // Only handle clicks within the rail's slider-line area; let prev/next
-      // and other controls keep their own handlers.
       if (e.target.closest('button')) return;
       seekTo(e.clientX);
     });
   }
-  // Prev / next snap buttons
+  // Prev / next snap buttons — also defer the render via rAF.
   const times = gameInterestingTimes(g);
   document.getElementById('dt-prev').addEventListener('click', () => {
     let prev = times[0];
     for (const t of times) { if (t < sec) prev = t; }
     detailScrubSec = prev;
-    renderDetailModal();
+    scheduleDetailRender();
   });
   document.getElementById('dt-next').addEventListener('click', () => {
     let next = times[times.length - 1];
     for (let i = times.length - 1; i >= 0; i--) { if (times[i] > sec) next = times[i]; }
     detailScrubSec = next;
-    renderDetailModal();
+    scheduleDetailRender();
   });
   // Click a disc — highlight that player across all views (totals strip + timeline).
   body.querySelectorAll('.detail-disc').forEach(disc => {
