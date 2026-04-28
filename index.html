@@ -1179,9 +1179,19 @@ input[type="checkbox"] { accent-color: var(--success); cursor: pointer; }
 .detail-disc.highlighted {
   outline: 3px solid var(--accent);
   outline-offset: 2px;
+  /* Also drop the dark contrast outline + boost the white border so the
+     highlighted disc reads as "lifted" rather than just outlined. */
+  border-color: #fff;
+  box-shadow:
+    0 0 0 1px rgba(0,0,0,0.55),
+    0 6px 16px rgba(251, 191, 36, 0.55),
+    inset 0 1px 0 rgba(255,255,255,0.18);
   z-index: 5;
 }
-.detail-disc.dimmed { opacity: 0.42; }
+/* Non-highlighted discs stay fully opaque on the field — only 8–11 discs
+   visible at a time, so dimming everyone else feels like the discs went
+   translucent. The highlighted disc's amber outline + glow does the
+   "lifted" treatment instead. */
 .detail-disc .dd-role {
   display: block;
   font-size: 8px; font-weight: 800;
