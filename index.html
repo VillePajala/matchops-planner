@@ -504,6 +504,33 @@ button { border: none; background: none; color: inherit; cursor: pointer; }
 }
 .chip-name { display: inline; }
 
+/* Kebab/menu button that appears on chip hover for mouse users. Hidden by
+   default, revealed on hover only on devices with a real pointer (mouse).
+   Phones / touch screens fall back to long-press, which still works. */
+.chip-menu-btn {
+  position: absolute;
+  top: 1px; right: 1px;
+  width: 18px; height: 18px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: rgba(15, 23, 42, 0.55);
+  color: rgba(255,255,255,0.92);
+  border-radius: 4px;
+  font-size: 13px; font-weight: 700;
+  line-height: 1;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s, background 0.12s;
+  z-index: 3;
+}
+.chip-menu-btn:hover { background: rgba(15, 23, 42, 0.85); }
+@media (hover: hover) and (pointer: fine) {
+  .slot:hover .chip-menu-btn,
+  .slot:focus-within .chip-menu-btn {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
 .slot:active { cursor: grabbing; transform: scale(0.96); }
 .slot.drag-over { border-color: #2d5; background: #c8e6c9; }
 .slot.tap-selected {
@@ -918,6 +945,31 @@ button { border: none; background: none; color: inherit; cursor: pointer; }
 }
 .sheet-sub { text-align: center; font-size: 12px; color: var(--text-dim); margin: 0 0 14px; }
 .sheet-actions { display: flex; flex-direction: column; gap: 8px; }
+
+/* On wider viewports, render the bottom sheet as a centred dialog instead of
+   a full-width slide-up. Better with a mouse — doesn't cover an entire game
+   card you're comparing against. */
+@media (min-width: 700px) {
+  .bottom-sheet {
+    bottom: auto;
+    top: 50%; left: 50%; right: auto;
+    width: min(560px, calc(100vw - 40px));
+    max-height: min(80vh, 720px);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 18px 18px 18px;
+    box-shadow: 0 16px 40px rgba(0,0,0,0.6);
+    transform: translate(-50%, -50%) scale(0.92);
+    opacity: 0;
+    transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.15s ease;
+  }
+  .bottom-sheet.open {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+  .sheet-handle { display: none; }
+  .sheet-title { font-size: 17px; margin-bottom: 4px; }
+}
 
 /* ══════════════════ Misc ══════════════════ */
 .empty-state {
@@ -2829,9 +2881,16 @@ function chipHtml(gameIdx, role, startSec, segIdx, segMin, player, extraClass) {
   }
   const flex = Math.max(1, Math.round(segMin || 0));
   const benchAttr = role === '__BENCH__' ? ' data-bench-player="' + escapeHtml(player || '') + '"' : '';
+  // Kebab button — only meaningful when there's actually a player here.
+  // Always rendered (kept out of touch flow via the (hover:hover) media query
+  // in CSS) so desktop users have a discoverable click target instead of
+  // having to right-click.
+  const kebab = player
+    ? '<button type="button" class="chip-menu-btn" tabindex="-1" aria-label="Chip actions" title="Actions">⋮</button>'
+    : '';
   return '<div class="' + cls + '" data-game="' + gameIdx + '" data-role="' + escapeHtml(role) + '" data-start="' + startSec + '" data-segidx="' + segIdx + '"' + benchAttr + ' style="--seg-flex:' + flex + ';" draggable="true">' +
     minuteBadge +
-    '<span class="chip-name">' + escapeHtml(player || '') + '</span>' + barHtml + '</div>';
+    '<span class="chip-name">' + escapeHtml(player || '') + '</span>' + barHtml + kebab + '</div>';
 }
 
 /* Build the HTML for a single game's pitch card (pitch + bench drawer).
@@ -3055,13 +3114,28 @@ function renderGameDetail() {
     slot.addEventListener('dragleave', onDragLeave);
     slot.addEventListener('drop', onDrop);
     slot.addEventListener('dragend', onDragEnd);
-    slot.addEventListener('click', onChipClick);
+    slot.addEventListener('click', (e) => {
+      // The kebab button shouldn't trigger select-for-swap; check the target.
+      if (e.target.closest('.chip-menu-btn')) return;
+      onChipClick(e);
+    });
     slot.addEventListener('contextmenu', (e) => { e.preventDefault(); openChipSheet(slot); });
     // long-press for touch
     let t = null;
     slot.addEventListener('touchstart', () => { t = setTimeout(() => openChipSheet(slot), 500); });
     slot.addEventListener('touchend',   () => { if (t) { clearTimeout(t); t = null; } });
     slot.addEventListener('touchmove',  () => { if (t) { clearTimeout(t); t = null; } });
+  });
+  // Kebab buttons — explicit click target for mouse users to open the sheet.
+  view.querySelectorAll('.chip-menu-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      const slot = btn.closest('.slot');
+      if (slot) openChipSheet(slot);
+    });
+    // Don't initiate a drag from the kebab — it should be a button-click only.
+    btn.addEventListener('dragstart', (e) => { e.preventDefault(); e.stopPropagation(); });
   });
 }
 
